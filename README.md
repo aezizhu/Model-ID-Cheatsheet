@@ -110,7 +110,7 @@ Merge into your Windsurf MCP config:
 - **OpenAI:** GPT-5.2, GPT-5, GPT-5 Mini, GPT-4.1 series, o3, o4-mini, o3-mini + legacy GPT-4o
 - **Anthropic:** Claude Opus 4.6, Sonnet 4.5, Haiku 4.5 + legacy Opus 4.5/4.0, Sonnet 4.0, 3.7
 - **Google:** Gemini 3 Pro/Flash (preview), 2.5 Pro/Flash/Flash Lite + deprecated 2.0 Flash
-- **xAI:** Grok 3, Grok 3 Mini
+- **xAI:** Grok 4, Grok 4.1 Fast + legacy Grok 3
 - **Meta:** Llama 4 Maverick, Llama 4 Scout + legacy Llama 3.3 70B
-- **Mistral:** Mistral Large, Mistral Small, Codestral
-- **DeepSeek:** DeepSeek R1, DeepSeek V3
+- **Mistral:** Mistral Large 3, Mistral Small, Devstral 2 + legacy Codestral
+- **DeepSeek:** DeepSeek R1, DeepSeek V3.2 + legacy DeepSeek V3

@@ -16,6 +16,12 @@ from registry import (
 from registry import (
     recommend_model as _recommend_model,
 )
+from registry import (
+    search_models as _search_models,
+)
+from registry import (
+    get_pricing_summary as _get_pricing_summary,
+)
 
 # FastMCP @mcp.tool() wraps functions in FunctionTool objects.
 # Unwrap to get the raw callable for testing.
@@ -24,6 +30,7 @@ get_model_info = _get_model_info.fn
 recommend_model = _recommend_model.fn
 check_model_status = _check_model_status.fn
 compare_models = _compare_models.fn
+search_models = _search_models.fn
 
 
 # ── Data integrity ────────────────────────────────────────────────────────
@@ -236,3 +243,32 @@ class TestCompareModels:
         result = compare_models(["GPT-5", "CLAUDE-OPUS-4-6"])
         assert "GPT-5" in result
         assert "Claude Opus 4.6" in result
+
+
+# ── search_models ─────────────────────────────────────────────────────────
+
+
+class TestSearchModels:
+    def test_search_by_provider(self):
+        result = search_models("OpenAI")
+        assert "gpt" in result.lower()
+
+    def test_search_by_name(self):
+        result = search_models("Claude")
+        assert "Anthropic" in result
+
+    def test_search_by_note_keyword(self):
+        result = search_models("flagship")
+        assert "|" in result  # Should return table
+
+    def test_search_case_insensitive(self):
+        result = search_models("GEMINI")
+        assert "Google" in result
+
+    def test_search_no_results(self):
+        result = search_models("zzzznonexistent")
+        assert "No models found" in result
+
+    def test_search_partial_id(self):
+        result = search_models("gpt-5")
+        assert "GPT-5" in result
