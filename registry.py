@@ -266,6 +266,71 @@ def check_model_status(model_id: str) -> str:
     return result
 
 
+@mcp.tool()
+def compare_models(model_ids: list[str]) -> str:
+    """Compare 2-5 models side by side.
+
+    Args:
+        model_ids: List of model ID strings to compare (2-5 models).
+
+    Returns:
+        Markdown comparison table, or an error if fewer than 2 valid models found.
+    """
+    if len(model_ids) < 2:
+        return "Please provide at least 2 model IDs to compare."
+
+    if len(model_ids) > 5:
+        model_ids = model_ids[:5]
+
+    models = []
+    not_found = []
+    for mid in model_ids:
+        m = MODELS.get(mid)
+        if not m:
+            mid_lower = mid.lower()
+            for key, val in MODELS.items():
+                if key.lower() == mid_lower or mid_lower in key.lower():
+                    m = val
+                    break
+        if m:
+            models.append(m)
+        else:
+            not_found.append(mid)
+
+    if not_found:
+        return f"Model(s) not found: {', '.join(not_found)}"
+
+    if len(models) < 2:
+        return "Need at least 2 valid models to compare."
+
+    # Build comparison table — fields as rows, models as columns
+    header = "| Field | " + " | ".join(m["display_name"] for m in models) + " |"
+    sep = "|-------|" + "|".join("------" for _ in models) + "|"
+
+    def caps(m):
+        c = []
+        if m["vision"]:
+            c.append("Vision")
+        if m["reasoning"]:
+            c.append("Reasoning")
+        return ", ".join(c) if c else "None"
+
+    rows = [
+        header,
+        sep,
+        "| Provider | " + " | ".join(m["provider"] for m in models) + " |",
+        "| Status | " + " | ".join(m["status"] for m in models) + " |",
+        "| Context | " + " | ".join(f"{m['context_window']:,}" for m in models) + " |",
+        "| Max Output | " + " | ".join(f"{m['max_output_tokens']:,}" for m in models) + " |",
+        "| Capabilities | " + " | ".join(caps(m) for m in models) + " |",
+        "| Input $/1M | " + " | ".join(f"${m['pricing_input']:.2f}" for m in models) + " |",
+        "| Output $/1M | " + " | ".join(f"${m['pricing_output']:.2f}" for m in models) + " |",
+        "| Knowledge Cutoff | " + " | ".join(m["knowledge_cutoff"] for m in models) + " |",
+        "| Release Date | " + " | ".join(m["release_date"] for m in models) + " |",
+    ]
+    return "\n".join(rows)
+
+
 # ── Resources ──────────────────────────────────────────────────────────────
 
 

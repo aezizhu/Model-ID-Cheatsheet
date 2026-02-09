@@ -8,6 +8,7 @@ from registry import (
     get_model_info as _get_model_info,
     recommend_model as _recommend_model,
     check_model_status as _check_model_status,
+    compare_models as _compare_models,
 )
 
 # FastMCP @mcp.tool() wraps functions in FunctionTool objects.
@@ -16,6 +17,7 @@ list_models = _list_models.fn
 get_model_info = _get_model_info.fn
 recommend_model = _recommend_model.fn
 check_model_status = _check_model_status.fn
+compare_models = _compare_models.fn
 
 
 # ── Data integrity ────────────────────────────────────────────────────────
@@ -166,3 +168,31 @@ class TestCheckModelStatus:
     def test_not_found(self):
         result = check_model_status("fake-model")
         assert "not found" in result.lower()
+
+
+# ── compare_models ────────────────────────────────────────────────────────
+
+
+class TestCompareModels:
+    def test_two_models(self):
+        result = compare_models(["gpt-5", "claude-opus-4-6"])
+        assert "GPT-5" in result
+        assert "Claude Opus 4.6" in result
+
+    def test_three_models(self):
+        result = compare_models(["gpt-5", "claude-opus-4-6", "gemini-2.5-pro"])
+        assert "GPT-5" in result
+        assert "Gemini 2.5 Pro" in result
+
+    def test_single_model_error(self):
+        result = compare_models(["gpt-5"])
+        assert "at least 2" in result.lower()
+
+    def test_not_found_model(self):
+        result = compare_models(["gpt-5", "nonexistent"])
+        assert "not found" in result.lower()
+
+    def test_case_insensitive(self):
+        result = compare_models(["GPT-5", "CLAUDE-OPUS-4-6"])
+        assert "GPT-5" in result
+        assert "Claude Opus 4.6" in result
