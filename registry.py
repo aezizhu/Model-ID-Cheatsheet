@@ -351,6 +351,30 @@ def compare_models(model_ids: list[str]) -> str:
     return "\n".join(rows)
 
 
+@mcp.tool()
+def search_models(query: str) -> str:
+    """Search for models by keyword across names, providers, and notes.
+
+    Args:
+        query: Search term to match against model display names, IDs, providers, and notes.
+
+    Returns:
+        Markdown table of matching models, or a message if no matches found.
+    """
+    q = query.lower()
+    matches = [
+        m
+        for m in MODELS.values()
+        if q in m["id"].lower()
+        or q in m["display_name"].lower()
+        or q in m["provider"].lower()
+        or q in m["notes"].lower()
+    ]
+    if not matches:
+        return f"No models found matching '{query}'."
+    return _format_table(matches)
+
+
 # ── Resources ──────────────────────────────────────────────────────────────
 
 
@@ -365,6 +389,23 @@ def get_current_models() -> str:
     """JSON dump of only current (non-legacy, non-deprecated) models."""
     current = {k: v for k, v in MODELS.items() if v["status"] == "current"}
     return json.dumps(current, indent=2)
+
+
+@mcp.resource("model://registry/pricing")
+def get_pricing_summary() -> str:
+    """Markdown table of all current models sorted by input pricing (cheapest first)."""
+    current = [m for m in MODELS.values() if m["status"] == "current"]
+    current.sort(key=lambda m: m["pricing_input"])
+
+    rows = []
+    rows.append("| Model ID | Provider | Input $/1M | Output $/1M | Context |")
+    rows.append("|----------|----------|------------|-------------|---------|")
+    for m in current:
+        rows.append(
+            f"| {m['id']} | {m['provider']} | ${m['pricing_input']:.2f} | "
+            f"${m['pricing_output']:.2f} | {m['context_window']:,} |"
+        )
+    return "\n".join(rows)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────

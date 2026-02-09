@@ -31,6 +31,11 @@ recommend_model = _recommend_model.fn
 check_model_status = _check_model_status.fn
 compare_models = _compare_models.fn
 search_models = _search_models.fn
+get_pricing_summary = (
+    _get_pricing_summary.fn
+    if hasattr(_get_pricing_summary, "fn")
+    else _get_pricing_summary
+)
 
 
 # ── Data integrity ────────────────────────────────────────────────────────
@@ -272,3 +277,33 @@ class TestSearchModels:
     def test_search_partial_id(self):
         result = search_models("gpt-5")
         assert "GPT-5" in result
+
+
+# ── pricing resource ──────────────────────────────────────────────────────
+
+
+class TestPricingSummary:
+    def test_returns_table(self):
+        result = get_pricing_summary()
+        assert "| Model ID" in result
+        assert "Input $/1M" in result
+
+    def test_sorted_by_price(self):
+        result = get_pricing_summary()
+        lines = [
+            l
+            for l in result.split("\n")
+            if l.startswith("| ") and "Model ID" not in l and "---" not in l
+        ]
+        prices = []
+        for line in lines:
+            parts = line.split("|")
+            price_str = parts[3].strip().replace("$", "")
+            prices.append(float(price_str))
+        assert prices == sorted(prices), "Pricing should be sorted ascending"
+
+    def test_only_current_models(self):
+        result = get_pricing_summary()
+        deprecated = [m["id"] for m in MODELS.values() if m["status"] != "current"]
+        for mid in deprecated:
+            assert f"| {mid} |" not in result
