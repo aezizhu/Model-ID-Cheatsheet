@@ -160,38 +160,53 @@ def recommend_model(
     for m in current:
         score = 0.0
 
-        # Task relevance
-        if "coding" in task_lower or "code" in task_lower:
+        # ── Task relevance signals ──
+        if "coding" in task_lower or "code" in task_lower or "programming" in task_lower:
             if m["reasoning"]:
                 score += 3
             if m["context_window"] >= 200_000:
                 score += 1
-        if "vision" in task_lower or "image" in task_lower:
+            if "codestral" in m["id"]:
+                score += 2
+
+        if "vision" in task_lower or "image" in task_lower or "screenshot" in task_lower:
             if m["vision"]:
                 score += 4
             else:
                 score -= 10
-        if "reason" in task_lower or "think" in task_lower or "math" in task_lower:
+
+        if "reason" in task_lower or "think" in task_lower or "math" in task_lower or "logic" in task_lower:
             if m["reasoning"]:
                 score += 5
-        if "long context" in task_lower or "large document" in task_lower:
+
+        if "long context" in task_lower or "large document" in task_lower or "summariz" in task_lower:
             if m["context_window"] >= 1_000_000:
                 score += 4
             elif m["context_window"] >= 200_000:
                 score += 2
+
         if "cheap" in task_lower or "batch" in task_lower or "cost" in task_lower:
             score += max(0, 5 - m["pricing_input"])
 
-        # Budget modifier
+        if "multilingual" in task_lower or "translat" in task_lower:
+            if m["provider"] == "Mistral":
+                score += 2
+            if m["context_window"] >= 128_000:
+                score += 1
+
+        if "open" in task_lower and ("weight" in task_lower or "source" in task_lower):
+            if m["provider"] in ("Meta", "DeepSeek", "Mistral"):
+                score += 3
+
+        # ── Budget modifier ──
         if budget == "cheap":
             score += max(0, 3 - m["pricing_input"])
             if m["pricing_input"] > 5:
                 score -= 5
         elif budget == "unlimited":
-            # Prefer the most capable
             score += min(m["pricing_input"], 5)
 
-        # General quality signal: higher-priced models are generally more capable
+        # General quality signal
         score += min(m["pricing_input"] * 0.3, 2)
 
         scored.append((score, m))

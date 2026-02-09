@@ -147,6 +147,31 @@ class TestRecommendModel:
         result = recommend_model("complex math reasoning")
         assert "reasoning" in result.lower()
 
+    def test_long_context_prefers_large_context(self):
+        result = recommend_model("long context analysis of documents")
+        lines = result.split("\n")
+        first_rec = next(l for l in lines if l.startswith("1."))
+        assert any(
+            mid in first_rec.lower()
+            for mid in ["gemini", "gpt-4.1", "llama-4"]
+        ), f"Expected large-context model in first rec: {first_rec}"
+
+    def test_cheap_budget_excludes_expensive(self):
+        result = recommend_model("general assistant", budget="cheap")
+        lines = result.split("\n")
+        first_rec = next(l for l in lines if l.startswith("1."))
+        # Should not recommend $10+ models first
+        assert "o3" not in first_rec or "o3-mini" in first_rec
+        assert "claude-opus" not in first_rec
+
+    def test_coding_specialist(self):
+        result = recommend_model("code generation and review")
+        assert "1." in result
+
+    def test_multilingual(self):
+        result = recommend_model("multilingual translation")
+        assert "1." in result
+
 
 # ── check_model_status ────────────────────────────────────────────────────
 
