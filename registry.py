@@ -2,9 +2,9 @@
 
 import json
 import os
-from typing import Optional
 
 from fastmcp import FastMCP
+
 from models_data import MODELS
 
 mcp = FastMCP(
@@ -28,12 +28,10 @@ def _format_table(models: list[dict]) -> str:
 
     rows = []
     rows.append(
-        "| Model ID | Display Name | Provider | Status | Context | "
-        "Input $/1M | Output $/1M |"
+        "| Model ID | Display Name | Provider | Status | Context | Input $/1M | Output $/1M |"
     )
     rows.append(
-        "|----------|-------------|----------|--------|---------|"
-        "-----------|-------------|"
+        "|----------|-------------|----------|--------|---------|-----------|-------------|"
     )
     for m in models:
         ctx = f"{m['context_window']:,}"
@@ -54,20 +52,20 @@ def _model_detail(m: dict) -> str:
         caps.append("Reasoning/Thinking")
     caps_str = ", ".join(caps) if caps else "None"
 
-    return f"""## {m['display_name']} (`{m['id']}`)
+    return f"""## {m["display_name"]} (`{m["id"]}`)
 
 | Field | Value |
 |-------|-------|
-| Provider | {m['provider']} |
-| Status | **{m['status']}** |
-| Context Window | {m['context_window']:,} tokens |
-| Max Output | {m['max_output_tokens']:,} tokens |
+| Provider | {m["provider"]} |
+| Status | **{m["status"]}** |
+| Context Window | {m["context_window"]:,} tokens |
+| Max Output | {m["max_output_tokens"]:,} tokens |
 | Capabilities | {caps_str} |
-| Pricing (input) | ${m['pricing_input']:.2f} / 1M tokens |
-| Pricing (output) | ${m['pricing_output']:.2f} / 1M tokens |
-| Knowledge Cutoff | {m['knowledge_cutoff']} |
-| Release Date | {m['release_date']} |
-| Notes | {m['notes'] or '—'} |"""
+| Pricing (input) | ${m["pricing_input"]:.2f} / 1M tokens |
+| Pricing (output) | ${m["pricing_output"]:.2f} / 1M tokens |
+| Knowledge Cutoff | {m["knowledge_cutoff"]} |
+| Release Date | {m["release_date"]} |
+| Notes | {m["notes"] or "—"} |"""
 
 
 # ── Tools ──────────────────────────────────────────────────────────────────
@@ -75,9 +73,9 @@ def _model_detail(m: dict) -> str:
 
 @mcp.tool()
 def list_models(
-    provider: Optional[str] = None,
-    status: Optional[str] = None,
-    capability: Optional[str] = None,
+    provider: str | None = None,
+    status: str | None = None,
+    capability: str | None = None,
 ) -> str:
     """List AI models with optional filters.
 
@@ -138,7 +136,7 @@ def get_model_info(model_id: str) -> str:
 @mcp.tool()
 def recommend_model(
     task: str,
-    budget: Optional[str] = None,
+    budget: str | None = None,
 ) -> str:
     """Recommend the best model for a given task.
 
@@ -175,11 +173,19 @@ def recommend_model(
             else:
                 score -= 10
 
-        if "reason" in task_lower or "think" in task_lower or "math" in task_lower or "logic" in task_lower:
-            if m["reasoning"]:
-                score += 5
+        if (
+            "reason" in task_lower
+            or "think" in task_lower
+            or "math" in task_lower
+            or "logic" in task_lower
+        ) and m["reasoning"]:
+            score += 5
 
-        if "long context" in task_lower or "large document" in task_lower or "summariz" in task_lower:
+        if (
+            "long context" in task_lower
+            or "large document" in task_lower
+            or "summariz" in task_lower
+        ):
             if m["context_window"] >= 1_000_000:
                 score += 4
             elif m["context_window"] >= 200_000:
@@ -194,9 +200,12 @@ def recommend_model(
             if m["context_window"] >= 128_000:
                 score += 1
 
-        if "open" in task_lower and ("weight" in task_lower or "source" in task_lower):
-            if m["provider"] in ("Meta", "DeepSeek", "Mistral"):
-                score += 3
+        if (
+            "open" in task_lower
+            and ("weight" in task_lower or "source" in task_lower)
+            and m["provider"] in ("Meta", "DeepSeek", "Mistral")
+        ):
+            score += 3
 
         # ── Budget modifier ──
         if budget == "cheap":
@@ -215,7 +224,7 @@ def recommend_model(
     top = scored[:3]
 
     lines = [f"## Recommendations for: *{task}*", f"**Budget:** {budget}", ""]
-    for i, (score, m) in enumerate(top, 1):
+    for i, (_score, m) in enumerate(top, 1):
         caps = []
         if m["vision"]:
             caps.append("vision")
@@ -266,14 +275,10 @@ def check_model_status(model_id: str) -> str:
             for m in MODELS.values()
             if m["provider"] == model["provider"] and m["status"] == "current"
         ]
-        replacements.sort(
-            key=lambda m: abs(m["pricing_input"] - model["pricing_input"])
-        )
+        replacements.sort(key=lambda m: abs(m["pricing_input"] - model["pricing_input"]))
         if replacements:
             r = replacements[0]
-            result += (
-                f"\n\nRecommended replacement: **{r['display_name']}** (`{r['id']}`)"
-            )
+            result += f"\n\nRecommended replacement: **{r['display_name']}** (`{r['id']}`)"
 
     if model["notes"]:
         result += f"\n\nNote: {model['notes']}"

@@ -2,13 +2,19 @@
 
 from models_data import MODELS
 from registry import (
-    _format_table,
-    _model_detail,
-    list_models as _list_models,
-    get_model_info as _get_model_info,
-    recommend_model as _recommend_model,
     check_model_status as _check_model_status,
+)
+from registry import (
     compare_models as _compare_models,
+)
+from registry import (
+    get_model_info as _get_model_info,
+)
+from registry import (
+    list_models as _list_models,
+)
+from registry import (
+    recommend_model as _recommend_model,
 )
 
 # FastMCP @mcp.tool() wraps functions in FunctionTool objects.
@@ -27,9 +33,19 @@ class TestModelsData:
     """Verify every model entry has the required schema."""
 
     REQUIRED_KEYS = {
-        "id", "display_name", "provider", "context_window",
-        "max_output_tokens", "vision", "reasoning", "pricing_input",
-        "pricing_output", "knowledge_cutoff", "release_date", "status", "notes",
+        "id",
+        "display_name",
+        "provider",
+        "context_window",
+        "max_output_tokens",
+        "vision",
+        "reasoning",
+        "pricing_input",
+        "pricing_output",
+        "knowledge_cutoff",
+        "release_date",
+        "status",
+        "notes",
     }
 
     def test_all_models_have_required_keys(self):
@@ -150,16 +166,15 @@ class TestRecommendModel:
     def test_long_context_prefers_large_context(self):
         result = recommend_model("long context analysis of documents")
         lines = result.split("\n")
-        first_rec = next(l for l in lines if l.startswith("1."))
-        assert any(
-            mid in first_rec.lower()
-            for mid in ["gemini", "gpt-4.1", "llama-4"]
-        ), f"Expected large-context model in first rec: {first_rec}"
+        first_rec = next(line for line in lines if line.startswith("1."))
+        assert any(mid in first_rec.lower() for mid in ["gemini", "gpt-4.1", "llama-4"]), (
+            f"Expected large-context model in first rec: {first_rec}"
+        )
 
     def test_cheap_budget_excludes_expensive(self):
         result = recommend_model("general assistant", budget="cheap")
         lines = result.split("\n")
-        first_rec = next(l for l in lines if l.startswith("1."))
+        first_rec = next(line for line in lines if line.startswith("1."))
         # Should not recommend $10+ models first
         assert "o3" not in first_rec or "o3-mini" in first_rec
         assert "claude-opus" not in first_rec
