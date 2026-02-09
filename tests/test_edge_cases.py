@@ -157,7 +157,7 @@ class TestCombinedFilters:
         result = list_models(provider="OpenAI", capability="reasoning")
         assert "OpenAI" in result
         # Non-reasoning OpenAI models should be excluded
-        assert "gpt-5 " not in result or "| gpt-5 |" not in result
+        assert "| gpt-4.1-mini |" not in result
 
     def test_all_filters_no_match(self):
         result = list_models(provider="Meta", capability="reasoning")

@@ -207,11 +207,15 @@ class TestCheckModelStatus:
         assert "current" in result.lower()
 
     def test_legacy_model(self):
-        result = check_model_status("gpt-4o")
+        result = check_model_status("gpt-4.1")
         assert "legacy" in result.lower()
         assert "replacement" in result.lower()
 
     def test_deprecated_model(self):
+        result = check_model_status("gpt-4o")
+        assert "deprecated" in result.lower()
+
+    def test_deprecated_model_mini(self):
         result = check_model_status("gpt-4o-mini")
         assert "deprecated" in result.lower()
 

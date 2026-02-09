@@ -1,4 +1,4 @@
-.PHONY: test lint format serve docker-build docker-run clean help validate-models
+.PHONY: test lint format serve docker-build docker-run clean help validate-models auto-update
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -32,6 +32,9 @@ clean: ## Remove caches and build artifacts
 
 validate-models: ## Validate model IDs against live APIs
 	uv run python scripts/validate_models.py
+
+auto-update: ## Detect new/retired models from provider APIs
+	uv run python scripts/auto_update.py
 
 sync: ## Install/update dependencies
 	uv sync
