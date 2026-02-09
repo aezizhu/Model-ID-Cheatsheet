@@ -31,6 +31,7 @@ uv run fastmcp dev registry.py
 | `get_model_info(model_id)` | Full specs for a specific model |
 | `recommend_model(task, budget?)` | Best model for a task |
 | `check_model_status(model_id)` | Is this model current, legacy, or deprecated? |
+| `compare_models(model_ids)` | Side-by-side comparison of 2-5 models |
 
 ## Resources
 
@@ -109,3 +110,7 @@ Merge into your Windsurf MCP config:
 - **OpenAI:** GPT-5.2, GPT-5, GPT-5 Mini, GPT-4.1 series, o3, o4-mini, o3-mini + legacy GPT-4o
 - **Anthropic:** Claude Opus 4.6, Sonnet 4.5, Haiku 4.5 + legacy Opus 4.5/4.0, Sonnet 4.0, 3.7
 - **Google:** Gemini 3 Pro/Flash (preview), 2.5 Pro/Flash/Flash Lite + deprecated 2.0 Flash
+- **xAI:** Grok 3, Grok 3 Mini
+- **Meta:** Llama 4 Maverick, Llama 4 Scout + legacy Llama 3.3 70B
+- **Mistral:** Mistral Large, Mistral Small, Codestral
+- **DeepSeek:** DeepSeek R1, DeepSeek V3
