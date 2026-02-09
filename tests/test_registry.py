@@ -85,16 +85,16 @@ class TestListModels:
 
     def test_filter_by_vision(self):
         result = list_models(capability="vision")
-        # Should not contain models without vision
+        # Should not contain models without vision (check table cell to avoid substring matches)
         non_vision = [m["id"] for m in MODELS.values() if not m["vision"]]
         for mid in non_vision:
-            assert mid not in result
+            assert f"| {mid} |" not in result
 
     def test_filter_by_reasoning(self):
         result = list_models(capability="reasoning")
         non_reasoning = [m["id"] for m in MODELS.values() if not m["reasoning"]]
         for mid in non_reasoning:
-            assert mid not in result
+            assert f"| {mid} |" not in result
 
     def test_no_results(self):
         result = list_models(provider="Nonexistent")
