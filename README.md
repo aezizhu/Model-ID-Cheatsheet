@@ -2,7 +2,7 @@
 
 A lightweight MCP server that exposes a curated, static registry of current AI models. Prevents coding agents from hallucinating outdated model names.
 
-**No API keys required.** Data is a static Python dict — no external calls.
+**37 models across 7 providers** | No API keys required | Static Python dict — no external calls
 
 ## Deployed Instance
 
@@ -114,3 +114,16 @@ Merge into your Windsurf MCP config:
 - **Meta:** Llama 4 Maverick, Llama 4 Scout + legacy Llama 3.3 70B
 - **Mistral:** Mistral Large 3, Mistral Small, Devstral 2 + legacy Codestral
 - **DeepSeek:** DeepSeek R1, DeepSeek V3.2 + legacy DeepSeek V3
+
+## Quick Stats
+
+| Provider | Current | Legacy | Deprecated | Total |
+|----------|---------|--------|------------|-------|
+| OpenAI | 9 | 1 | 1 | 11 |
+| Anthropic | 3 | 3 | 1 | 7 |
+| Google | 5 | 0 | 1 | 6 |
+| xAI | 2 | 1 | 0 | 3 |
+| Meta | 2 | 1 | 0 | 3 |
+| Mistral | 3 | 1 | 0 | 4 |
+| DeepSeek | 2 | 1 | 0 | 3 |
+| **Total** | **26** | **8** | **3** | **37** |
