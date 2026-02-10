@@ -162,6 +162,7 @@ var knownModels = map[string]map[string]bool{
 		"sonar":               true,
 		"sonar-pro":           true,
 		"sonar-reasoning-pro": true,
+		"sonar-deep-research": true,
 	},
 	"AI21": {
 		"jamba-large-1.7": true,

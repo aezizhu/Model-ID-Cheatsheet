@@ -1,12 +1,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![Models](https://img.shields.io/badge/Models-75-blueviolet)](https://github.com/aezizhu/universal-model-registry)
+[![Models](https://img.shields.io/badge/Models-76-blueviolet)](https://github.com/aezizhu/universal-model-registry)
 [![Providers](https://img.shields.io/badge/Providers-11-orange)](https://github.com/aezizhu/universal-model-registry)
 [![Tests](https://img.shields.io/badge/Tests-116%20passing-brightgreen)](https://github.com/aezizhu/universal-model-registry)
 
 # Model ID Cheatsheet
 
-**Stop your AI coding agent from hallucinating outdated model names.** This plugin gives any AI assistant instant access to accurate, up-to-date API model IDs, pricing, and specs for **75 models across 11 providers**.
+**Stop your AI coding agent from hallucinating outdated model names.** This plugin gives any AI assistant instant access to accurate, up-to-date API model IDs, pricing, and specs for **76 models across 11 providers**.
 
 Built in Go. Single 10MB binary. Zero external calls. Sub-millisecond responses. Auto-updated daily.
 
@@ -168,9 +168,9 @@ response = client.chat.completions.create(
 
 ---
 
-## Covered Models (75 total)
+## Covered Models (76 total)
 
-### Current Models (57)
+### Current Models (58)
 
 | Provider | Models | API IDs |
 |----------|--------|---------|
@@ -183,7 +183,7 @@ response = client.chat.completions.create(
 | **DeepSeek** (2) | DeepSeek Reasoner, DeepSeek Chat | `deepseek-reasoner`, `deepseek-chat` |
 | **Amazon** (6) | Nova Micro, Nova Lite, Nova Pro, Nova Premier, Nova 2 Lite, Nova 2 Pro | `amazon-nova-micro`, `amazon-nova-lite`, `amazon-nova-pro`, `amazon-nova-premier`, `amazon-nova-2-lite`, `amazon-nova-2-pro` |
 | **Cohere** (4) | Command A, Command A Reasoning, Command A Vision, Command R7B | `command-a-03-2025`, `command-a-reasoning-08-2025`, `command-a-vision-07-2025`, `command-r7b-12-2024` |
-| **Perplexity** (3) | Sonar, Sonar Pro, Sonar Reasoning Pro | `sonar`, `sonar-pro`, `sonar-reasoning-pro` |
+| **Perplexity** (4) | Sonar, Sonar Pro, Sonar Reasoning Pro, Sonar Deep Research | `sonar`, `sonar-pro`, `sonar-reasoning-pro`, `sonar-deep-research` |
 | **AI21** (2) | Jamba Large 1.7, Jamba Mini 1.7 | `jamba-large-1.7`, `jamba-mini-1.7` |
 
 ### Legacy & Deprecated Models (18)

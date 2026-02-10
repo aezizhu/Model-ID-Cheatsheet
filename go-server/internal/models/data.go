@@ -1115,6 +1115,21 @@ var Models = map[string]Model{
 		Status:          "current",
 		Notes:           "Reasoning model powered by DeepSeek R1 with CoT, search-augmented",
 	},
+	"sonar-deep-research": {
+		ID:              "sonar-deep-research",
+		DisplayName:     "Sonar Deep Research",
+		Provider:        "Perplexity",
+		ContextWindow:   128_000,
+		MaxOutputTokens: 8_000,
+		Vision:          false,
+		Reasoning:       true,
+		PricingInput:    2.00,
+		PricingOutput:   8.00,
+		KnowledgeCutoff: "2025-02",
+		ReleaseDate:     "2025-10",
+		Status:          "current",
+		Notes:           "Multi-step deep research, automated web search and analysis, comprehensive reports with citations",
+	},
 	// ─── AI21: Current ─────────────────────────────────────────────────
 	"jamba-large-1.7": {
 		ID:              "jamba-large-1.7",
