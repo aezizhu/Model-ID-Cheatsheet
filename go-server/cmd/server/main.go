@@ -28,7 +28,9 @@ type SearchModelsInput struct {
 	Query string `json:"query" jsonschema:"Search term to match against model names and notes"`
 }
 
-func main() {
+// newServer creates a fresh MCP server with all tools and resources registered.
+// Each SSE/HTTP session needs its own server instance to avoid shared state issues.
+func newServer() *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    "model-id-cheatsheet",
@@ -164,26 +166,28 @@ func main() {
 		},
 	)
 
-	// ── Start Server ────────────────────────────────────────────────────
+	return server
+}
 
+func main() {
 	fmt.Fprintf(os.Stderr, "Model ID Cheatsheet — %d models loaded\n", len(models.Models))
 
 	transport := os.Getenv("MCP_TRANSPORT")
 	switch transport {
 	case "sse":
 		serveHTTP("SSE", mcp.NewSSEHandler(func(_ *http.Request) *mcp.Server {
-			return server
+			return newServer()
 		}, nil))
 
 	case "streamable-http":
 		serveHTTP("Streamable HTTP", mcp.NewStreamableHTTPHandler(func(_ *http.Request) *mcp.Server {
-			return server
+			return newServer()
 		}, nil))
 
 	default:
-		// stdio transport (default) — no HTTP, no rate limiting needed.
+		// stdio transport (default) — single session, one server is fine.
 		fmt.Fprintln(os.Stderr, "Starting stdio transport")
-		if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+		if err := newServer().Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	}
@@ -197,8 +201,16 @@ func serveHTTP(label string, handler http.Handler) {
 	}
 	addr := ":" + port
 
+	// Health endpoint that doesn't create MCP sessions.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "ok")
+	})
+	mux.Handle("/", handler)
+
 	limiter := middleware.NewLimiter(middleware.DefaultConfig())
-	protected := limiter.Wrap(handler)
+	protected := limiter.Wrap(mux)
 
 	srv := &http.Server{
 		Addr:              addr,
