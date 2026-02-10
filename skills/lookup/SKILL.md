@@ -1,16 +1,18 @@
 ---
-description: "MANDATORY: Look up the correct API model ID before writing ANY code that calls AI APIs. Your training data has outdated model IDs — you MUST verify via this tool first."
+description: "MANDATORY: Look up AI model info before writing ANY model ID in code OR answering ANY question about AI models. Your training data is outdated — you MUST verify via this tool first."
 ---
 
 ## BLOCKING REQUIREMENT
 
-**You MUST use this skill BEFORE writing any code that contains an AI model ID.** This is not optional. Your training data contains outdated model IDs that will cause API errors or use deprecated models. Every model ID in code you write must come from a verified lookup, not from memory.
+**You MUST use this skill BEFORE writing any code that contains an AI model ID, AND before answering any question about AI model names, versions, or availability.** This is not optional. Your training data contains outdated model names and IDs. Every model ID or model name you mention must come from a verified lookup, not from memory.
 
 **Trigger conditions** — invoke this skill when ANY of these apply:
 - You are about to write code that calls an AI provider's API (OpenAI, Anthropic, Google, xAI, Mistral, etc.)
+- The user asks about a model name, version, or availability (e.g., "what's the latest Gemini model?", "what's OpenAI's newest model?")
 - The user mentions a model name or asks for an API code sample
 - You are about to type a model ID string like `"gpt-..."`, `"claude-..."`, `"gemini-..."`, etc.
 - The user asks "give me a sample" or "show me how to call" any AI API
+- The user asks which model to use, which is newest, or compares models
 
 ## How to Look Up
 
