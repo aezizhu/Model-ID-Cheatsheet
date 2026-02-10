@@ -118,6 +118,7 @@ func TestKnownModels_AllProvidersPresent(t *testing.T) {
 	expected := []string{
 		"OpenAI", "Anthropic", "Google", "xAI", "Mistral", "DeepSeek",
 		"Meta", "Amazon", "Cohere", "Perplexity", "AI21",
+		"Moonshot", "Zhipu", "NVIDIA", "Tencent", "Microsoft", "MiniMax", "Xiaomi", "Kuaishou",
 	}
 	for _, p := range expected {
 		ids, ok := knownModels[p]

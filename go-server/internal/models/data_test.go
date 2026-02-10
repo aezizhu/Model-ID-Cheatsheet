@@ -88,8 +88,8 @@ func TestAtLeastThreeProviders(t *testing.T) {
 }
 
 func TestTotalModelCount(t *testing.T) {
-	if len(Models) != 76 {
-		t.Errorf("expected 76 models, got %d", len(Models))
+	if len(Models) != 94 {
+		t.Errorf("expected 94 models, got %d", len(Models))
 	}
 }
 
@@ -103,14 +103,22 @@ func TestProviderCounts(t *testing.T) {
 		"OpenAI":     19,
 		"Anthropic":  8,
 		"Google":     8,
-		"xAI":       7,
-		"Meta":      3,
-		"Mistral":   11,
-		"DeepSeek":  4,
-		"Amazon":    6,
-		"Cohere":    4,
+		"xAI":        7,
+		"Meta":       3,
+		"Mistral":    11,
+		"DeepSeek":   4,
+		"Amazon":     6,
+		"Cohere":     4,
 		"Perplexity": 4,
-		"AI21":      2,
+		"AI21":       2,
+		"Moonshot":   3,
+		"Zhipu":      3,
+		"NVIDIA":     2,
+		"Tencent":    3,
+		"Microsoft":  3,
+		"MiniMax":    2,
+		"Xiaomi":     1,
+		"Kuaishou":   1,
 	}
 
 	for provider, want := range expected {

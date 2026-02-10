@@ -1,12 +1,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![Models](https://img.shields.io/badge/Models-76-blueviolet)](https://github.com/aezizhu/universal-model-registry)
-[![Providers](https://img.shields.io/badge/Providers-11-orange)](https://github.com/aezizhu/universal-model-registry)
+[![Models](https://img.shields.io/badge/Models-94-blueviolet)](https://github.com/aezizhu/universal-model-registry)
+[![Providers](https://img.shields.io/badge/Providers-19-orange)](https://github.com/aezizhu/universal-model-registry)
 [![Tests](https://img.shields.io/badge/Tests-116%20passing-brightgreen)](https://github.com/aezizhu/universal-model-registry)
 
 # Model ID Cheatsheet
 
-**Stop your AI coding agent from hallucinating outdated model names.** This plugin gives any AI assistant instant access to accurate, up-to-date API model IDs, pricing, and specs for **76 models across 11 providers**.
+**Stop your AI coding agent from hallucinating outdated model names.** This plugin gives any AI assistant instant access to accurate, up-to-date API model IDs, pricing, and specs for **94 models across 19 providers**.
 
 Built in Go. Single 10MB binary. Zero external calls. Sub-millisecond responses. Auto-updated daily.
 
@@ -114,7 +114,7 @@ Your AI agent gets these 6 tools:
 
 | URI | Description |
 |-----|-------------|
-| `model://registry/all` | Full JSON dump of all 64 models |
+| `model://registry/all` | Full JSON dump of all 94 models |
 | `model://registry/current` | Only current (non-deprecated) models as JSON |
 | `model://registry/pricing` | Pricing table sorted cheapest-first (markdown) |
 
@@ -168,9 +168,9 @@ response = client.chat.completions.create(
 
 ---
 
-## Covered Models (76 total)
+## Covered Models (94 total)
 
-### Current Models (58)
+### Current Models (77)
 
 | Provider | Models | API IDs |
 |----------|--------|---------|
@@ -185,8 +185,16 @@ response = client.chat.completions.create(
 | **Cohere** (4) | Command A, Command A Reasoning, Command A Vision, Command R7B | `command-a-03-2025`, `command-a-reasoning-08-2025`, `command-a-vision-07-2025`, `command-r7b-12-2024` |
 | **Perplexity** (4) | Sonar, Sonar Pro, Sonar Reasoning Pro, Sonar Deep Research | `sonar`, `sonar-pro`, `sonar-reasoning-pro`, `sonar-deep-research` |
 | **AI21** (2) | Jamba Large 1.7, Jamba Mini 1.7 | `jamba-large-1.7`, `jamba-mini-1.7` |
+| **Moonshot** (3) | Kimi K2.5, Kimi K2 Thinking, Kimi K2 (0905) | `kimi-k2.5`, `kimi-k2-thinking`, `kimi-k2-0905-preview` |
+| **Zhipu** (3) | GLM-4.7, GLM-4.7 FlashX, GLM-4.6V | `glm-4.7`, `glm-4.7-flashx`, `glm-4.6v` |
+| **NVIDIA** (2) | Nemotron 3 Nano 30B, Nemotron Ultra 253B | `nvidia/nemotron-3-nano-30b-a3b`, `nvidia/llama-3.1-nemotron-ultra-253b-v1` |
+| **Tencent** (3) | Hunyuan TurboS, Hunyuan T1, Hunyuan A13B | `hunyuan-turbos`, `hunyuan-t1`, `hunyuan-a13b` |
+| **Microsoft** (3) | Phi-4, Phi-4 Multimodal, Phi-4 Reasoning Plus | `phi-4`, `phi-4-multimodal-instruct`, `phi-4-reasoning-plus` |
+| **MiniMax** (2) | MiniMax M2.1, MiniMax-01 | `minimax-m2.1`, `minimax-01` |
+| **Xiaomi** (1) | MiMo V2 Flash | `mimo-v2-flash` |
+| **Kuaishou** (1) | KAT-Coder Pro | `kat-coder-pro` |
 
-### Legacy & Deprecated Models (18)
+### Legacy & Deprecated Models (17)
 
 Also tracked so your agent can detect outdated model IDs and suggest replacements:
 

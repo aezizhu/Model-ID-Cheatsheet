@@ -168,6 +168,40 @@ var knownModels = map[string]map[string]bool{
 		"jamba-large-1.7": true,
 		"jamba-mini-1.7":  true,
 	},
+	"Moonshot": {
+		"kimi-k2.5":            true,
+		"kimi-k2-thinking":     true,
+		"kimi-k2-0905-preview": true,
+	},
+	"Zhipu": {
+		"glm-4.7":        true,
+		"glm-4.7-flashx": true,
+		"glm-4.6v":       true,
+	},
+	"NVIDIA": {
+		"nvidia/nemotron-3-nano-30b-a3b":            true,
+		"nvidia/llama-3.1-nemotron-ultra-253b-v1": true,
+	},
+	"Tencent": {
+		"hunyuan-turbos": true,
+		"hunyuan-t1":     true,
+		"hunyuan-a13b":   true,
+	},
+	"Microsoft": {
+		"phi-4":                      true,
+		"phi-4-multimodal-instruct":  true,
+		"phi-4-reasoning-plus":       true,
+	},
+	"MiniMax": {
+		"minimax-m2.1": true,
+		"minimax-01":   true,
+	},
+	"Xiaomi": {
+		"mimo-v2-flash": true,
+	},
+	"Kuaishou": {
+		"kat-coder-pro": true,
+	},
 }
 
 const maxRetries = 3
