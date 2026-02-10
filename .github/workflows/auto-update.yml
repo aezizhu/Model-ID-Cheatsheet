@@ -1,6 +1,9 @@
 # OPTIONAL: GitHub Actions alternative for auto-updating models.
 # The primary auto-update mechanism is the Railway cron service (see configs/railway-updater.toml).
 # Use this workflow if you self-host without Railway, or as a backup.
+#
+# No provider API keys needed — the updater scrapes public documentation pages.
+# Only GITHUB_TOKEN is required (automatically provided by GitHub Actions).
 name: Auto Update Models
 
 on:
@@ -32,29 +35,9 @@ jobs:
         id: updater
         continue-on-error: true
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
         run: ./updater > ../update-report.txt 2>&1
-
-      - name: Create issue if changes detected
-        if: steps.updater.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TITLE="Model Update Detected - $(date +%Y-%m-%d)"
-          EXISTING=$(gh issue list --label "auto-update" --search "$TITLE" --state open --json number --jq 'length')
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "Issue already exists for today, skipping."
-          else
-            gh issue create \
-              --title "$TITLE" \
-              --body "$(cat ../update-report.txt)" \
-              --label "auto-update"
-          fi
 
       - name: Upload report
         if: always()

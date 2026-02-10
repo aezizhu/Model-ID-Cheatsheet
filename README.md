@@ -289,11 +289,13 @@ For Cursor (local):
 Model data is automatically checked and updated **daily at 7 PM Pacific Time** — no human intervention needed.
 
 **How it works:**
-1. Railway cron runs the updater daily, querying 6 provider APIs (OpenAI, Anthropic, Google, Mistral, xAI, DeepSeek)
-2. **Models removed from APIs** → auto-deprecated via PR (status changed to `"deprecated"` in code)
+1. Railway cron runs the updater daily, scraping 6 providers' public documentation pages (no API keys needed)
+2. **Models removed from docs** → auto-deprecated via PR (status changed to `"deprecated"` in code)
 3. **New models detected** → GitHub issue created for review
 4. CI runs on the auto-generated PR → if tests pass → **auto-merged** into main
 5. Railway auto-deploys from main
+
+**No provider API keys required.** The updater reads publicly available documentation pages to detect model changes. Only `GITHUB_TOKEN` and `GITHUB_REPO` are needed for creating PRs and issues.
 
 <details>
 <summary><strong>Auto-Update Pipeline Details</strong></summary>
@@ -301,14 +303,17 @@ Model data is automatically checked and updated **daily at 7 PM Pacific Time** �
 **Railway Cron (primary)** — The hosted instance uses a Railway cron service that runs the updater daily. See `configs/railway-updater.toml` for the configuration.
 
 Required env vars (set in Railway dashboard):
-- Provider API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY`
-- For auto-PRs and issues: `GITHUB_TOKEN` (with repo scope), `GITHUB_REPO` (e.g. `"owner/repo"`)
+- `GITHUB_TOKEN` — GitHub personal access token with repo scope
+- `GITHUB_REPO` — Repository in `"owner/repo"` format (e.g. `"aezizhu/universal-model-registry"`)
+
+**Providers checked (via public docs):**
+- OpenAI (via GitHub SDK source), Anthropic, Google, Mistral, xAI, DeepSeek
 
 **CI/CD Workflows:**
 - `.github/workflows/ci.yml` — runs tests on every PR
 - `.github/workflows/auto-merge.yml` — auto-merges bot PRs (labeled `auto-update`) after CI passes
 
-**GitHub Actions (alternative)** — A GitHub Actions workflow is also included at `.github/workflows/auto-update.yml` for users who self-host without Railway. Set up your provider API keys as repository secrets and the workflow runs on the same daily schedule.
+**GitHub Actions (alternative)** — A GitHub Actions workflow is also included at `.github/workflows/auto-update.yml` for users who self-host without Railway. No API keys needed — only `GITHUB_TOKEN` (automatically provided by GitHub Actions).
 
 </details>
 
