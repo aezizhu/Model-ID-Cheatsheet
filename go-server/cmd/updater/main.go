@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -142,6 +144,10 @@ func main() {
 
 	// Capture report output for GitHub issue creation.
 	var report strings.Builder
+	// Collect all missing model IDs for auto-deprecation PR.
+	var allMissing []string
+	// Collect all new model IDs for issue reporting.
+	var allNew []string
 
 	logf := func(format string, args ...any) {
 		line := fmt.Sprintf(format, args...)
@@ -175,6 +181,7 @@ func main() {
 		if len(newModels) > 0 {
 			hasChanges = true
 			sort.Strings(newModels)
+			allNew = append(allNew, newModels...)
 			logf("  NEW (%d):\n", len(newModels))
 			for _, m := range newModels {
 				logf("    + %s\n", m)
@@ -183,6 +190,7 @@ func main() {
 		if len(missing) > 0 {
 			hasChanges = true
 			sort.Strings(missing)
+			allMissing = append(allMissing, missing...)
 			logf("  MISSING from API (%d):\n", len(missing))
 			for _, m := range missing {
 				logf("    - %s\n", m)
@@ -207,7 +215,14 @@ func main() {
 			logf("WARNING: Some providers failed to respond (see errors above).\n")
 		}
 		logf("Changes detected. Review the output above.\n")
-		createGitHubIssue(ctx, client, report.String())
+		// Auto-deprecate missing models via PR (fully automatic).
+		if len(allMissing) > 0 {
+			createDeprecationPR(ctx, client, allMissing, report.String())
+		}
+		// New models need human review — create an issue.
+		if len(allNew) > 0 {
+			createGitHubIssue(ctx, client, report.String())
+		}
 		os.Exit(1)
 	} else if hasErrors {
 		logf("No model changes detected, but some providers could not be checked.\n")
@@ -380,6 +395,192 @@ func createGitHubIssue(ctx context.Context, client *http.Client, reportBody stri
 	} else {
 		respBody, _ := io.ReadAll(io.LimitReader(issueResp.Body, 512))
 		fmt.Printf("[GitHub] Failed to create issue (HTTP %d): %s\n", issueResp.StatusCode, string(respBody))
+	}
+}
+
+// createDeprecationPR creates a GitHub PR that changes the status of missing models
+// to "deprecated" in data.go. Uses the GitHub Contents API — no git clone needed.
+// Requires GITHUB_TOKEN and GITHUB_REPO environment variables.
+func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []string, reportBody string) {
+	token := os.Getenv("GITHUB_TOKEN")
+	repo := os.Getenv("GITHUB_REPO")
+	if token == "" || repo == "" {
+		return
+	}
+
+	apiBase := "https://api.github.com"
+	filePath := "go-server/internal/models/data.go"
+	today := time.Now().Format("2006-01-02")
+	branchName := "auto-deprecate-" + today
+
+	doReq := func(method, url string, body any) (*http.Response, error) {
+		var reader io.Reader
+		if body != nil {
+			b, err := json.Marshal(body)
+			if err != nil {
+				return nil, err
+			}
+			reader = bytes.NewReader(b)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, url, reader)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Accept", "application/vnd.github+json")
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		return client.Do(req)
+	}
+
+	// Step 1: Get current data.go content and blob SHA.
+	fileURL := fmt.Sprintf("%s/repos/%s/contents/%s", apiBase, repo, filePath)
+	resp, err := doReq(http.MethodGet, fileURL, nil)
+	if err != nil {
+		fmt.Printf("[GitHub PR] failed to get file: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("[GitHub PR] failed to get file: HTTP %d\n", resp.StatusCode)
+		return
+	}
+
+	var fileInfo struct {
+		SHA     string `json:"sha"`
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&fileInfo); err != nil {
+		fmt.Printf("[GitHub PR] failed to decode file info: %v\n", err)
+		return
+	}
+
+	// Decode base64 content (GitHub inserts newlines in base64).
+	rawContent, err := base64.StdEncoding.DecodeString(strings.ReplaceAll(fileInfo.Content, "\n", ""))
+	if err != nil {
+		fmt.Printf("[GitHub PR] failed to decode file content: %v\n", err)
+		return
+	}
+
+	// Step 2: Apply deprecation changes to the file content.
+	content := string(rawContent)
+	changed := false
+	for _, id := range missingIDs {
+		// Match the Status line for this model's block. The pattern matches:
+		//   "model-id": {  ...  Status: "current",  or  Status: "legacy",
+		// and replaces with Status: "deprecated".
+		// We use a targeted regex that finds the model block by ID.
+		pattern := fmt.Sprintf(`("%s":\s*\{[^}]*Status:\s*)"(?:current|legacy)"`, regexp.QuoteMeta(id))
+		re := regexp.MustCompile(pattern)
+		if re.MatchString(content) {
+			content = re.ReplaceAllString(content, `${1}"deprecated"`)
+			changed = true
+			fmt.Printf("[GitHub PR] Marking %s as deprecated\n", id)
+		}
+	}
+
+	if !changed {
+		fmt.Printf("[GitHub PR] No status changes needed in data.go\n")
+		return
+	}
+
+	// Step 3: Get main branch SHA to create branch from.
+	refURL := fmt.Sprintf("%s/repos/%s/git/ref/heads/main", apiBase, repo)
+	resp, err = doReq(http.MethodGet, refURL, nil)
+	if err != nil {
+		fmt.Printf("[GitHub PR] failed to get main ref: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("[GitHub PR] failed to get main ref: HTTP %d\n", resp.StatusCode)
+		return
+	}
+
+	var refInfo struct {
+		Object struct {
+			SHA string `json:"sha"`
+		} `json:"object"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&refInfo); err != nil {
+		fmt.Printf("[GitHub PR] failed to decode ref info: %v\n", err)
+		return
+	}
+
+	// Step 4: Create new branch.
+	createRefURL := fmt.Sprintf("%s/repos/%s/git/refs", apiBase, repo)
+	resp, err = doReq(http.MethodPost, createRefURL, map[string]string{
+		"ref": "refs/heads/" + branchName,
+		"sha": refInfo.Object.SHA,
+	})
+	if err != nil {
+		fmt.Printf("[GitHub PR] failed to create branch: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		fmt.Printf("[GitHub PR] failed to create branch (HTTP %d): %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	// Step 5: Update file on new branch.
+	sort.Strings(missingIDs)
+	commitMsg := fmt.Sprintf("auto: deprecate %s (removed from provider API)", strings.Join(missingIDs, ", "))
+	resp, err = doReq(http.MethodPut, fileURL, map[string]string{
+		"message": commitMsg,
+		"content": base64.StdEncoding.EncodeToString([]byte(content)),
+		"sha":     fileInfo.SHA,
+		"branch":  branchName,
+	})
+	if err != nil {
+		fmt.Printf("[GitHub PR] failed to update file: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		fmt.Printf("[GitHub PR] failed to update file (HTTP %d): %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	// Step 6: Create pull request.
+	prURL := fmt.Sprintf("%s/repos/%s/pulls", apiBase, repo)
+	prBody := fmt.Sprintf("## Auto-Deprecation\n\nModels removed from provider APIs:\n")
+	for _, id := range missingIDs {
+		prBody += fmt.Sprintf("- `%s`\n", id)
+	}
+	prBody += fmt.Sprintf("\n<details>\n<summary>Full update report</summary>\n\n```\n%s\n```\n</details>", reportBody)
+
+	resp, err = doReq(http.MethodPost, prURL, map[string]any{
+		"title": "auto: deprecate models removed from provider APIs — " + today,
+		"body":  prBody,
+		"head":  branchName,
+		"base":  "main",
+	})
+	if err != nil {
+		fmt.Printf("[GitHub PR] failed to create PR: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		var pr struct {
+			HTMLURL string `json:"html_url"`
+			Number  int    `json:"number"`
+		}
+		json.NewDecoder(resp.Body).Decode(&pr)
+		fmt.Printf("[GitHub PR] Created: %s\n", pr.HTMLURL)
+		// Add auto-update label to the PR for auto-merge workflow.
+		labelURL := fmt.Sprintf("%s/repos/%s/issues/%d/labels", apiBase, repo, pr.Number)
+		resp, err = doReq(http.MethodPost, labelURL, []string{"auto-update"})
+		if err == nil {
+			defer resp.Body.Close()
+		}
+	} else {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		fmt.Printf("[GitHub PR] Failed to create PR (HTTP %d): %s\n", resp.StatusCode, string(body))
 	}
 }
 

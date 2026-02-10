@@ -286,12 +286,27 @@ For Cursor (local):
 
 ## Staying Up to Date
 
-Model data is automatically checked **daily at 7 PM Pacific Time** via a Railway cron service. The updater queries each provider's API to detect new models, deprecations, or pricing changes, and opens a GitHub issue if updates are needed.
+Model data is automatically checked and updated **daily at 7 PM Pacific Time** — no human intervention needed.
+
+**How it works:**
+1. Railway cron runs the updater daily, querying 6 provider APIs (OpenAI, Anthropic, Google, Mistral, xAI, DeepSeek)
+2. **Models removed from APIs** → auto-deprecated via PR (status changed to `"deprecated"` in code)
+3. **New models detected** → GitHub issue created for review
+4. CI runs on the auto-generated PR → if tests pass → **auto-merged** into main
+5. Railway auto-deploys from main
 
 <details>
-<summary><strong>Auto-Update Options</strong></summary>
+<summary><strong>Auto-Update Pipeline Details</strong></summary>
 
-**Railway Cron (primary)** — The hosted instance uses a Railway cron service that runs the updater daily. See `configs/railway-updater.toml` for the configuration. Required env vars: provider API keys + optional `GITHUB_TOKEN` and `GITHUB_REPO` for automatic issue creation.
+**Railway Cron (primary)** — The hosted instance uses a Railway cron service that runs the updater daily. See `configs/railway-updater.toml` for the configuration.
+
+Required env vars (set in Railway dashboard):
+- Provider API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY`
+- For auto-PRs and issues: `GITHUB_TOKEN` (with repo scope), `GITHUB_REPO` (e.g. `"owner/repo"`)
+
+**CI/CD Workflows:**
+- `.github/workflows/ci.yml` — runs tests on every PR
+- `.github/workflows/auto-merge.yml` — auto-merges bot PRs (labeled `auto-update`) after CI passes
 
 **GitHub Actions (alternative)** — A GitHub Actions workflow is also included at `.github/workflows/auto-update.yml` for users who self-host without Railway. Set up your provider API keys as repository secrets and the workflow runs on the same daily schedule.
 
