@@ -2,25 +2,61 @@ package tools
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"go-server/internal/models"
 )
 
+// newestPerProvider returns a set of model IDs that are the newest (by ReleaseDate) for each provider.
+func newestPerProvider(ms []models.Model) map[string]bool {
+	best := make(map[string]string)   // provider -> best release date
+	bestID := make(map[string]string) // provider -> model ID with best date
+	for _, m := range ms {
+		if m.ReleaseDate > best[m.Provider] {
+			best[m.Provider] = m.ReleaseDate
+			bestID[m.Provider] = m.ID
+		}
+	}
+	result := make(map[string]bool)
+	for _, id := range bestID {
+		result[id] = true
+	}
+	return result
+}
+
 // FormatTable renders a list of models as a markdown table.
+// Models are grouped by provider and sorted newest-first within each group.
+// The newest model per provider is marked with ★.
 func FormatTable(ms []models.Model) string {
 	if len(ms) == 0 {
 		return "No models found matching the criteria."
 	}
 
+	newest := newestPerProvider(ms)
+
+	// Sort: by provider name ascending, then by release date descending within provider
+	sorted := make([]models.Model, len(ms))
+	copy(sorted, ms)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].Provider != sorted[j].Provider {
+			return sorted[i].Provider < sorted[j].Provider
+		}
+		return sorted[i].ReleaseDate > sorted[j].ReleaseDate
+	})
+
 	rows := []string{
 		"| Model ID | Display Name | Provider | Status | Context | Input $/1M | Output $/1M |",
 		"|----------|-------------|----------|--------|---------|-----------|-------------|",
 	}
-	for _, m := range ms {
+	for _, m := range sorted {
+		displayName := m.DisplayName
+		if newest[m.ID] {
+			displayName = "★ " + displayName
+		}
 		rows = append(rows, fmt.Sprintf(
 			"| %s | %s | %s | %s | %s | $%.2f | $%.2f |",
-			m.ID, m.DisplayName, m.Provider, m.Status,
+			m.ID, displayName, m.Provider, m.Status,
 			formatInt(m.ContextWindow),
 			m.PricingInput, m.PricingOutput,
 		))

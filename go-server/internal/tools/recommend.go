@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"go-server/internal/models"
@@ -127,13 +128,19 @@ func RecommendModel(task, budget string) string {
 		// General quality signal
 		score += math.Min(m.PricingInput*0.3, 2)
 
+		// Recency bonus: newer models get a boost (0 to 1.5 points)
+		score += recencyBonus(m.ReleaseDate)
+
 		results = append(results, scored{score: score, model: m})
 	}
 
-	// Sort descending by score, stable by display name for tie-breaking
+	// Sort descending by score; tie-break by newest release date, then display name
 	sort.SliceStable(results, func(i, j int) bool {
 		if results[i].score != results[j].score {
 			return results[i].score > results[j].score
+		}
+		if results[i].model.ReleaseDate != results[j].model.ReleaseDate {
+			return results[i].model.ReleaseDate > results[j].model.ReleaseDate
 		}
 		return results[i].model.DisplayName < results[j].model.DisplayName
 	})
@@ -170,4 +177,28 @@ func RecommendModel(task, budget string) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// recencyBonus returns a score bonus (0 to 1.5) based on how recent the model
+// release date is. Dates use "YYYY-MM" format. Newer models receive higher bonuses.
+func recencyBonus(releaseDate string) float64 {
+	parts := strings.Split(releaseDate, "-")
+	if len(parts) < 2 {
+		return 0
+	}
+	year, err1 := strconv.Atoi(parts[0])
+	month, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return 0
+	}
+	// Months since 2024-01 as a recency signal
+	totalMonths := float64((year-2024)*12 + month)
+	bonus := totalMonths / 16.0
+	if bonus < 0 {
+		bonus = 0
+	}
+	if bonus > 1.5 {
+		bonus = 1.5
+	}
+	return bonus
 }
