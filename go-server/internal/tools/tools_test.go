@@ -40,8 +40,8 @@ func TestListModels_FilterByStatus(t *testing.T) {
 	lines := strings.Split(result, "\n")
 	for _, line := range lines[2:] { // skip header
 		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
+		if line == "" || !strings.HasPrefix(line, "|") {
+			continue // skip empty lines and footer instruction
 		}
 		if !strings.Contains(line, "deprecated") {
 			t.Errorf("expected all rows to be deprecated, got: %s", line)

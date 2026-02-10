@@ -53,17 +53,26 @@ func FormatTable(ms []models.Model) string {
 		"| Model ID | Display Name | Provider | Status | Context | Input $/1M | Output $/1M |",
 		"|----------|-------------|----------|--------|---------|-----------|-------------|",
 	}
+	// Track newest model IDs for the footer instruction
+	var newestIDs []string
 	for _, m := range sorted {
-		displayName := m.DisplayName
+		star := ""
 		if newest[m.ID] {
-			displayName = "★ " + displayName
+			star = "★ "
+			newestIDs = append(newestIDs, m.ID)
 		}
 		rows = append(rows, fmt.Sprintf(
-			"| %s | %s | %s | %s | %s | $%.2f | $%.2f |",
-			m.ID, displayName, m.Provider, m.Status,
+			"| %s%s | %s | %s | %s | %s | $%.2f | $%.2f |",
+			star, m.ID, m.DisplayName, m.Provider, m.Status,
 			models.FormatInt(m.ContextWindow),
 			m.PricingInput, m.PricingOutput,
 		))
+	}
+
+	// Add explicit instruction footer so the agent knows which model to use
+	if len(newestIDs) > 0 {
+		rows = append(rows, "")
+		rows = append(rows, "**→ USE IN CODE: "+strings.Join(newestIDs, ", ")+" (★ = newest by release date, ALWAYS prefer these)**")
 	}
 	return strings.Join(rows, "\n")
 }

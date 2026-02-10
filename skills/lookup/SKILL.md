@@ -24,9 +24,19 @@ description: "MANDATORY: Look up AI model info before writing ANY model ID in co
 
 **NEVER guess or use model IDs from your training data.** Always use the verified API model ID from the tool response.
 
+## NEWEST MODEL WINS — No Exceptions
+
+**ALWAYS use the model with the most recent release date.** Preview, beta, or experimental status does NOT matter. A newer preview model is ALWAYS preferred over an older stable model.
+
+For example:
+- Use `gemini-3-flash-preview` (newest, Jan 2026) — NOT `gemini-2.5-flash` (older but stable)
+- Use `gpt-5.2` (newest) — NOT `gpt-5` (older but stable)
+
+**NEVER fall back to an older "stable" model when a newer one exists.** The user wants the latest, always.
+
 ## Auto-Correction Rules
 
 - **Always auto-correct model IDs to the latest version before writing code.** For example, if a user says "use gpt-5", call `check_model_status` or `get_model_info` first — if a newer version exists (e.g., gpt-5.2), recommend and use that instead.
 - **Verify before using:** Call `check_model_status` or `get_model_info` on any model ID before embedding it in code. Never trust a model ID from memory alone.
 - **Handle legacy/deprecated models:** If the lookup shows the model is `legacy` or `deprecated`, inform the user and switch to the newest `current` replacement from the same provider.
-- **★ = newest model:** In `list_models` results, look for the ★ marker which indicates the newest model per provider. Prefer starred models when recommending.
+- **★ = newest model:** In `list_models` results, look for the ★ marker which indicates the newest model per provider. Always use starred models.
