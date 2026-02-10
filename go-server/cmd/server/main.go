@@ -34,7 +34,7 @@ func newServer() *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    "model-id-cheatsheet",
-			Version: "1.0.0",
+			Version: "1.0.1",
 		},
 		&mcp.ServerOptions{
 			Instructions: "Query this server to get accurate, up-to-date information about AI models. " +

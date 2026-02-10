@@ -7,7 +7,7 @@
     "url": "https://github.com/aezizhu/universal-model-registry",
     "source": "github"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "remotes": [
     {
       "type": "sse",

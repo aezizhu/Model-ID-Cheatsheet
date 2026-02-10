@@ -60,7 +60,7 @@ func TestConcurrentSSESessions(t *testing.T) {
 			client := mcp.NewClient(
 				&mcp.Implementation{
 					Name:    fmt.Sprintf("test-client-%d", id),
-					Version: "1.0.0",
+					Version: "1.0.1",
 				},
 				nil,
 			)
