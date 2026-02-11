@@ -601,6 +601,65 @@ func TestSearchModels_MultiWord(t *testing.T) {
 	}
 }
 
+func TestSearchModels_VisionCapability(t *testing.T) {
+	// "google vision" should find Google vision models via capability keyword injection
+	result := SearchModels("google vision")
+	if strings.Contains(result, "No models found") {
+		t.Error("expected 'google vision' to find Google vision models")
+	}
+}
+
+func TestSearchModels_ReasoningCapability(t *testing.T) {
+	result := SearchModels("openai reasoning")
+	if strings.Contains(result, "No models found") {
+		t.Error("expected 'openai reasoning' to find OpenAI reasoning models")
+	}
+}
+
+func TestSearchModels_ProviderAlternateNames(t *testing.T) {
+	// z.ai should find Zhipu models via Notes field
+	result := SearchModels("z.ai")
+	if strings.Contains(result, "No models found") {
+		t.Error("expected 'z.ai' to find Zhipu models")
+	}
+	// nim should find NVIDIA models via Notes field
+	result = SearchModels("nim")
+	if strings.Contains(result, "No models found") {
+		t.Error("expected 'nim' to find NVIDIA models")
+	}
+}
+
+func TestListModels_ProviderAlias(t *testing.T) {
+	// "kimi" should resolve to Moonshot provider
+	result := ListModels("kimi", "", "")
+	if strings.Contains(result, "No models found") {
+		t.Error("expected list_models(provider='kimi') to find Moonshot models")
+	}
+	if !strings.Contains(result, "kimi-k2.5") {
+		t.Error("expected kimi-k2.5 in results for provider 'kimi'")
+	}
+}
+
+func TestListModels_ProviderAliasZhipu(t *testing.T) {
+	result := ListModels("z.ai", "", "")
+	if strings.Contains(result, "No models found") {
+		t.Error("expected list_models(provider='z.ai') to find Zhipu models")
+	}
+	if !strings.Contains(result, "glm-4.7") {
+		t.Error("expected glm-4.7 in results for provider 'z.ai'")
+	}
+}
+
+func TestListModels_ProviderAliasPhi(t *testing.T) {
+	result := ListModels("phi", "", "")
+	if strings.Contains(result, "No models found") {
+		t.Error("expected list_models(provider='phi') to find Microsoft models")
+	}
+	if !strings.Contains(result, "phi-4") {
+		t.Error("expected phi-4 in results for provider 'phi'")
+	}
+}
+
 // ── Alias resolution tests ───────────────────────────────────────────
 
 func TestFindModel_AliasResolution(t *testing.T) {

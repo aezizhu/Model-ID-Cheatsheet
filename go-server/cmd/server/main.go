@@ -38,7 +38,7 @@ func newServer() *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    "model-id-cheatsheet",
-			Version: "1.1.0",
+			Version: "1.2.0",
 		},
 		&mcp.ServerOptions{
 			Instructions: "Query this server to get accurate, up-to-date information about AI models. " +
@@ -221,7 +221,7 @@ func serveHTTP(label string, handler http.Handler) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"status":      "ok",
 			"models":      len(models.Models),
-			"version":     "1.0.1",
+			"version":     "1.2.0",
 			"uptime_secs": int(time.Since(startTime).Seconds()),
 			"transport":   label,
 		})

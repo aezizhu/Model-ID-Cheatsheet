@@ -1221,7 +1221,7 @@ var Models = map[string]Model{
 		KnowledgeCutoff: "2024-09",
 		ReleaseDate:     "2026-01",
 		Status:          "current",
-		Notes:           "Latest Zhipu AI flagship, interleaved thinking, 200K context. API: open.bigmodel.cn",
+		Notes:           "Latest Zhipu AI flagship, interleaved thinking, 200K context. API: open.bigmodel.cn. Also: z.ai, zhipuai",
 	},
 	"glm-4.7-flashx": {
 		ID:              "glm-4.7-flashx",
@@ -1236,7 +1236,7 @@ var Models = map[string]Model{
 		KnowledgeCutoff: "2024-09",
 		ReleaseDate:     "2026-01",
 		Status:          "current",
-		Notes:           "Fast 30B dense model, cost-efficient reasoning. API: open.bigmodel.cn",
+		Notes:           "Fast 30B dense model, cost-efficient reasoning. API: open.bigmodel.cn. Also: z.ai, zhipuai",
 	},
 	"glm-4.6v": {
 		ID:              "glm-4.6v",
@@ -1251,7 +1251,7 @@ var Models = map[string]Model{
 		KnowledgeCutoff: "2024-09",
 		ReleaseDate:     "2025-12",
 		Status:          "current",
-		Notes:           "Vision model, images/videos/documents, native function calling. API: open.bigmodel.cn",
+		Notes:           "Vision model, images/videos/documents, native function calling. API: open.bigmodel.cn. Also: z.ai, zhipuai",
 	},
 	// ─── NVIDIA: Current ──────────────────────────────────────────────
 	"nvidia/nemotron-3-nano-30b-a3b": {
@@ -1267,7 +1267,7 @@ var Models = map[string]Model{
 		KnowledgeCutoff: "2025-06",
 		ReleaseDate:     "2025-12",
 		Status:          "current",
-		Notes:           "Hybrid Mamba-2+Transformer MoE, 30B total 3.5B active, 1M context, configurable thinking. Pricing via OpenRouter, free on build.nvidia.com",
+		Notes:           "Hybrid Mamba-2+Transformer MoE, 30B total 3.5B active, 1M context, configurable thinking. Pricing via OpenRouter, free on build.nvidia.com. NVIDIA NIM platform",
 	},
 	"nvidia/llama-3.1-nemotron-ultra-253b-v1": {
 		ID:              "nvidia/llama-3.1-nemotron-ultra-253b-v1",
@@ -1282,7 +1282,7 @@ var Models = map[string]Model{
 		KnowledgeCutoff: "2023-12",
 		ReleaseDate:     "2025-04",
 		Status:          "current",
-		Notes:           "Flagship 253B via NAS from Llama 3.1 405B, reasoning ON/OFF modes. Pricing via OpenRouter, free on build.nvidia.com",
+		Notes:           "Flagship 253B via NAS from Llama 3.1 405B, reasoning ON/OFF modes. Pricing via OpenRouter, free on build.nvidia.com. NVIDIA NIM platform",
 	},
 	// ─── Tencent (Hunyuan): Current ───────────────────────────────────
 	"hunyuan-turbos": {
@@ -1344,7 +1344,7 @@ var Models = map[string]Model{
 		KnowledgeCutoff: "2024-06",
 		ReleaseDate:     "2024-12",
 		Status:          "current",
-		Notes:           "14B SLM, strong reasoning. Open weights, available via third-party providers. OpenRouter: microsoft/phi-4",
+		Notes:           "14B SLM, strong reasoning. Open weights, available via Azure and third-party providers. OpenRouter: microsoft/phi-4",
 	},
 	"phi-4-multimodal-instruct": {
 		ID:              "phi-4-multimodal-instruct",
@@ -1437,6 +1437,6 @@ var Models = map[string]Model{
 		KnowledgeCutoff: "2024-12",
 		ReleaseDate:     "2025-10",
 		Status:          "current",
-		Notes:           "Coding specialist, SWE-Bench 73.4%, ~72B active MoE. Also: kwaipilot/kat-coder-pro on OpenRouter",
+		Notes:           "Coding specialist, SWE-Bench 73.4%, ~72B active MoE. Kuaishou/Kwai model. Also: kwaipilot/kat-coder-pro on OpenRouter",
 	},
 }

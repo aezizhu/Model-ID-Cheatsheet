@@ -234,8 +234,38 @@ func FindModel(modelID string) (models.Model, bool) {
 	return models.Model{}, false
 }
 
+// providerAliases maps common alternative names to canonical provider names.
+var providerAliases = map[string]string{
+	"kimi":      "moonshot",
+	"zhipuai":   "zhipu",
+	"z.ai":      "zhipu",
+	"bigmodel":  "zhipu",
+	"glm":       "zhipu",
+	"phi":       "microsoft",
+	"azure":     "microsoft",
+	"nemotron":  "nvidia",
+	"nim":       "nvidia",
+	"hunyuan":   "tencent",
+	"mimo":      "xiaomi",
+	"kwai":      "kuaishou",
+	"kwaipilot": "kuaishou",
+	"kat":       "kuaishou",
+	"gpt":       "openai",
+	"chatgpt":   "openai",
+	"claude":    "anthropic",
+	"gemini":    "google",
+	"grok":      "xai",
+	"llama":     "meta",
+	"nova":      "amazon",
+	"sonar":     "perplexity",
+	"jamba":     "ai21",
+	"devstral":  "mistral",
+	"magistral": "mistral",
+	"ministral": "mistral",
+}
+
 // FilterModels returns models matching the given provider, status, and capability filters.
-// Empty string means no filter for that field.
+// Empty string means no filter for that field. Provider supports common aliases.
 func FilterModels(provider, status, capability string) []models.Model {
 	var results []models.Model
 	for _, m := range models.Models {
@@ -244,6 +274,10 @@ func FilterModels(provider, status, capability string) []models.Model {
 
 	if provider != "" {
 		p := strings.ToLower(provider)
+		// Resolve provider alias to canonical name
+		if canonical, ok := providerAliases[p]; ok {
+			p = canonical
+		}
 		var filtered []models.Model
 		for _, m := range results {
 			if strings.ToLower(m.Provider) == p {

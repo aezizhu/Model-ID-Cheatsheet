@@ -16,8 +16,16 @@ func SearchModels(query string) string {
 	words := strings.Fields(strings.ToLower(query))
 	var matches []models.Model
 	for _, m := range models.Models {
-		// Combine all searchable fields into one string for multi-word matching
-		combined := strings.ToLower(m.ID + " " + m.DisplayName + " " + m.Provider + " " + m.Status + " " + m.Notes)
+		// Combine all searchable fields into one string for multi-word matching.
+		// Include capability keywords so users can search "vision" or "reasoning".
+		caps := ""
+		if m.Vision {
+			caps += " vision multimodal"
+		}
+		if m.Reasoning {
+			caps += " reasoning thinking"
+		}
+		combined := strings.ToLower(m.ID + " " + m.DisplayName + " " + m.Provider + " " + m.Status + " " + m.Notes + caps)
 		allMatch := true
 		for _, w := range words {
 			if !strings.Contains(combined, w) {
