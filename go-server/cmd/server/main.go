@@ -39,7 +39,7 @@ func newServer() *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    "model-id-cheatsheet",
-			Version: "1.2.1",
+			Version: "1.3.0",
 		},
 		&mcp.ServerOptions{
 			Instructions: "Query this server to get accurate, up-to-date information about AI models. " +
@@ -233,13 +233,14 @@ func serveHTTP(transport string) {
 
 	mux := http.NewServeMux()
 
-	// Health endpoint — does not create MCP sessions.
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+	// Health endpoint — served OUTSIDE the rate limiter so Railway healthchecks
+	// never consume rate limit budget or connection slots.
+	healthHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":      "ok",
 			"models":      len(models.Models),
-			"version":     "1.2.1",
+			"version":     "1.3.0",
 			"uptime_secs": int(time.Since(startTime).Seconds()),
 			"transport":   transport,
 		})
@@ -264,13 +265,18 @@ func serveHTTP(transport string) {
 		labels = append(labels, "SSE on /sse", "Streamable HTTP on /mcp")
 	}
 
-	// Middleware stack: CORS → rate limit → mux.
+	// Middleware stack: top-level mux routes /health outside rate limiting.
+	// MCP endpoints go through: CORS → rate limit → mux.
 	limiter := middleware.NewLimiter(middleware.DefaultConfig())
-	protected := corsMiddleware(limiter.Wrap(mux))
+	mcpProtected := corsMiddleware(limiter.Wrap(mux))
+
+	topMux := http.NewServeMux()
+	topMux.Handle("/health", healthHandler) // exempt from rate limiting
+	topMux.Handle("/", mcpProtected)        // everything else is rate-limited
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           protected,
+		Handler:           topMux,
 		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      0, // SSE requires no write timeout (long-lived streams).

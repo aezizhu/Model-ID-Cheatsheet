@@ -109,24 +109,27 @@ func TestConcurrentSSESessions(t *testing.T) {
 	}
 }
 
-// newTestMux builds the same mux as serveHTTP: /health + /sse + /mcp.
-func newTestMux() *http.ServeMux {
+// newTestMux builds the same mux as serveHTTP: /health (unprotected) + /sse + /mcp.
+func newTestMux() http.Handler {
 	getServer := func(_ *http.Request) *mcp.Server { return newServer() }
 	sseHandler := mcp.NewSSEHandler(getServer, nil)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+	mcpMux := http.NewServeMux()
+	mcpMux.Handle("/sse", sseHandler)
+	mcpMux.Handle("/sse/", sseHandler)
+	mcpMux.Handle("/mcp", mcp.NewStreamableHTTPHandler(getServer, nil))
+
+	topMux := http.NewServeMux()
+	topMux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "ok",
 			"models":  len(models.Models),
-			"version": "1.2.1",
+			"version": "1.3.0",
 		})
 	})
-	mux.Handle("/sse", sseHandler)
-	mux.Handle("/sse/", sseHandler)
-	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(getServer, nil))
-	return mux
+	topMux.Handle("/", mcpMux)
+	return topMux
 }
 
 func TestHealthEndpoint(t *testing.T) {
@@ -161,7 +164,7 @@ func TestHealthEndpoint(t *testing.T) {
 	if health["status"] != "ok" {
 		t.Errorf("expected status 'ok', got %v", health["status"])
 	}
-	if health["version"] != "1.2.1" {
+	if health["version"] != "1.3.0" {
 		t.Errorf("expected version '1.2.1', got %v", health["version"])
 	}
 	if int(health["models"].(float64)) != len(models.Models) {
