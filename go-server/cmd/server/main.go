@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -188,16 +189,8 @@ func main() {
 
 	transport := os.Getenv("MCP_TRANSPORT")
 	switch transport {
-	case "sse":
-		serveHTTP("SSE", mcp.NewSSEHandler(func(_ *http.Request) *mcp.Server {
-			return newServer()
-		}, nil))
-
-	case "streamable-http":
-		serveHTTP("Streamable HTTP", mcp.NewStreamableHTTPHandler(func(_ *http.Request) *mcp.Server {
-			return newServer()
-		}, nil))
-
+	case "sse", "streamable-http", "both":
+		serveHTTP(transport)
 	default:
 		// stdio transport (default) — single session, one server is fine.
 		fmt.Fprintln(os.Stderr, "Starting stdio transport")
@@ -207,16 +200,40 @@ func main() {
 	}
 }
 
-// serveHTTP starts an HTTP server with timeouts, rate limiting, and graceful shutdown.
-func serveHTTP(label string, handler http.Handler) {
+// corsMiddleware adds CORS headers required for browser-based MCP clients
+// (VS Code webview, Claude.ai web, etc.).
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID")
+			w.Header().Set("Access-Control-Expose-Headers", "Mcp-Session-Id")
+			w.Header().Set("Access-Control-Max-Age", "86400")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// serveHTTP starts an HTTP server with both SSE and streamable-http transports,
+// CORS support, rate limiting, and graceful shutdown.
+func serveHTTP(transport string) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8000"
 	}
 	addr := ":" + port
 
-	// Health endpoint that doesn't create MCP sessions.
+	getServer := func(_ *http.Request) *mcp.Server { return newServer() }
+
 	mux := http.NewServeMux()
+
+	// Health endpoint — does not create MCP sessions.
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -224,19 +241,38 @@ func serveHTTP(label string, handler http.Handler) {
 			"models":      len(models.Models),
 			"version":     "1.2.1",
 			"uptime_secs": int(time.Since(startTime).Seconds()),
-			"transport":   label,
+			"transport":   transport,
 		})
 	})
-	mux.Handle("/", handler)
 
+	// Register transports based on config.
+	var labels []string
+	switch transport {
+	case "sse":
+		sseHandler := mcp.NewSSEHandler(getServer, nil)
+		mux.Handle("/sse", sseHandler)
+		mux.Handle("/sse/", sseHandler) // catch /sse?sessionid=X POST routing
+		labels = append(labels, "SSE on /sse")
+	case "streamable-http":
+		mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(getServer, nil))
+		labels = append(labels, "Streamable HTTP on /mcp")
+	default: // "both" or any other value — serve both
+		sseHandler := mcp.NewSSEHandler(getServer, nil)
+		mux.Handle("/sse", sseHandler)
+		mux.Handle("/sse/", sseHandler)
+		mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(getServer, nil))
+		labels = append(labels, "SSE on /sse", "Streamable HTTP on /mcp")
+	}
+
+	// Middleware stack: CORS → rate limit → mux.
 	limiter := middleware.NewLimiter(middleware.DefaultConfig())
-	protected := limiter.Wrap(mux)
+	protected := corsMiddleware(limiter.Wrap(mux))
 
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           protected,
-		ReadTimeout:       15 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      0, // SSE requires no write timeout (long-lived streams).
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB max headers.
@@ -257,8 +293,9 @@ func serveHTTP(label string, handler http.Handler) {
 		close(done)
 	}()
 
-	fmt.Fprintf(os.Stderr, "Starting %s server on %s (rate limit: %d req/min, max %d conns)\n",
-		label, addr, middleware.DefaultConfig().RequestsPerWindow, middleware.DefaultConfig().MaxTotalConns)
+	cfg := middleware.DefaultConfig()
+	fmt.Fprintf(os.Stderr, "Starting server on %s [%s] (rate limit: %d req/min, max %d conns)\n",
+		addr, strings.Join(labels, ", "), cfg.RequestsPerWindow, cfg.MaxTotalConns)
 
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)

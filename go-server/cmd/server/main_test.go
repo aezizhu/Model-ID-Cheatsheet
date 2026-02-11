@@ -41,11 +41,8 @@ func TestNewServerReturnsDistinctInstances(t *testing.T) {
 // to corrupt state for real clients ("method tools/call is invalid during
 // session initialization").
 func TestConcurrentSSESessions(t *testing.T) {
-	// SSE handler with per-connection server factory (same pattern as main).
-	handler := mcp.NewSSEHandler(func(_ *http.Request) *mcp.Server {
-		return newServer()
-	}, nil)
-	ts := httptest.NewServer(handler)
+	// Use newTestMux which mounts SSE at /sse (same as production).
+	ts := httptest.NewServer(newTestMux())
 	defer ts.Close()
 
 	const numClients = 3
@@ -59,7 +56,7 @@ func TestConcurrentSSESessions(t *testing.T) {
 			defer wg.Done()
 
 			ctx := context.Background()
-			transport := &mcp.SSEClientTransport{Endpoint: ts.URL}
+			transport := &mcp.SSEClientTransport{Endpoint: ts.URL + "/sse"}
 			client := mcp.NewClient(
 				&mcp.Implementation{
 					Name:    fmt.Sprintf("test-client-%d", id),
@@ -112,11 +109,10 @@ func TestConcurrentSSESessions(t *testing.T) {
 	}
 }
 
-// newTestMux builds the same mux as serveHTTP: /health (JSON) + SSE handler.
+// newTestMux builds the same mux as serveHTTP: /health + /sse + /mcp.
 func newTestMux() *http.ServeMux {
-	sseHandler := mcp.NewSSEHandler(func(_ *http.Request) *mcp.Server {
-		return newServer()
-	}, nil)
+	getServer := func(_ *http.Request) *mcp.Server { return newServer() }
+	sseHandler := mcp.NewSSEHandler(getServer, nil)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -124,10 +120,12 @@ func newTestMux() *http.ServeMux {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "ok",
 			"models":  len(models.Models),
-			"version": "1.0.1",
+			"version": "1.2.1",
 		})
 	})
-	mux.Handle("/", sseHandler)
+	mux.Handle("/sse", sseHandler)
+	mux.Handle("/sse/", sseHandler)
+	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(getServer, nil))
 	return mux
 }
 
@@ -163,8 +161,8 @@ func TestHealthEndpoint(t *testing.T) {
 	if health["status"] != "ok" {
 		t.Errorf("expected status 'ok', got %v", health["status"])
 	}
-	if health["version"] != "1.0.1" {
-		t.Errorf("expected version '1.0.1', got %v", health["version"])
+	if health["version"] != "1.2.1" {
+		t.Errorf("expected version '1.2.1', got %v", health["version"])
 	}
 	if int(health["models"].(float64)) != len(models.Models) {
 		t.Errorf("expected models %d, got %v", len(models.Models), health["models"])
@@ -187,7 +185,7 @@ func TestHealthDoesNotAffectSSE(t *testing.T) {
 		}
 	}
 
-	// Now verify that SSE still works: GET /sse should return 200 with
+	// Now verify that SSE still works: GET should return 200 with
 	// text/event-stream content type (the SSE handshake).
 	resp, err := http.Get(srv.URL + "/sse")
 	if err != nil {
@@ -202,5 +200,54 @@ func TestHealthDoesNotAffectSSE(t *testing.T) {
 	ct := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "text/event-stream") {
 		t.Errorf("expected Content-Type text/event-stream, got %q", ct)
+	}
+}
+
+func TestCORSPreflight(t *testing.T) {
+	srv := httptest.NewServer(corsMiddleware(newTestMux()))
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodOptions, srv.URL+"/mcp", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Origin", "https://example.com")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("expected 204 for OPTIONS preflight, got %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Access-Control-Allow-Origin"); got != "https://example.com" {
+		t.Errorf("expected ACAO header 'https://example.com', got %q", got)
+	}
+}
+
+func TestStreamableHTTPEndpoint(t *testing.T) {
+	srv := httptest.NewServer(newTestMux())
+	defer srv.Close()
+
+	// POST initialize to /mcp should return a valid MCP response.
+	body := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}`)
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/mcp", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 from /mcp, got %d", resp.StatusCode)
 	}
 }

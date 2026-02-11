@@ -12,7 +12,7 @@ RUN apk --no-cache add ca-certificates && \
     addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder /server /server
 USER appuser
-ENV MCP_TRANSPORT=sse
+ENV MCP_TRANSPORT=both
 ENV PORT=8000
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

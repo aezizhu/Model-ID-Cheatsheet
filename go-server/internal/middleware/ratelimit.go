@@ -23,12 +23,14 @@ type Config struct {
 }
 
 // DefaultConfig returns production-safe defaults.
+// Per-IP limits are generous because MCP clients use multiple concurrent
+// connections (SSE stream + POST messages + streamable-http sessions).
 func DefaultConfig() Config {
 	return Config{
-		RequestsPerWindow: 60,
+		RequestsPerWindow: 120,
 		Window:            time.Minute,
-		MaxConnsPerIP:     5,
-		MaxTotalConns:     100,
+		MaxConnsPerIP:     20,
+		MaxTotalConns:     200,
 		MaxBodyBytes:      64 * 1024, // 64KB
 	}
 }
