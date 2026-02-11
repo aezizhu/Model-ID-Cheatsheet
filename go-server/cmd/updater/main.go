@@ -444,7 +444,7 @@ func createGitHubIssue(ctx context.Context, client *http.Client, reportBody stri
 		var created struct {
 			HTMLURL string `json:"html_url"`
 		}
-		json.NewDecoder(issueResp.Body).Decode(&created)
+		_ = json.NewDecoder(issueResp.Body).Decode(&created)
 		fmt.Printf("[GitHub] Issue created: %s\n", created.HTMLURL)
 	} else {
 		respBody, _ := io.ReadAll(io.LimitReader(issueResp.Body, 512))
@@ -618,7 +618,7 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 			HTMLURL string `json:"html_url"`
 			Number  int    `json:"number"`
 		}
-		json.NewDecoder(resp.Body).Decode(&pr)
+		_ = json.NewDecoder(resp.Body).Decode(&pr)
 		fmt.Printf("[GitHub PR] Created: %s\n", pr.HTMLURL)
 		labelURL := fmt.Sprintf("%s/repos/%s/issues/%d/labels", apiBase, repo, pr.Number)
 		resp, err = doReq(http.MethodPost, labelURL, []string{"auto-update"})

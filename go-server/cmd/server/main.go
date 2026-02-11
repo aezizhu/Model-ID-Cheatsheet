@@ -219,7 +219,7 @@ func serveHTTP(label string, handler http.Handler) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":      "ok",
 			"models":      len(models.Models),
 			"version":     "1.2.1",
