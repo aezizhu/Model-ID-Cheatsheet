@@ -298,6 +298,12 @@ func main() {
 	logf("[Cohere] SKIP: no scrapable model listing (check docs.cohere.com)\n")
 	logf("[Perplexity] SKIP: no scrapable model listing (check docs.perplexity.ai)\n")
 	logf("[AI21] SKIP: no scrapable model listing (check docs.ai21.com)\n")
+	logf("[Moonshot] SKIP: no scrapable model listing (check platform.moonshot.cn)\n")
+	logf("[NVIDIA] SKIP: no scrapable model listing (check build.nvidia.com)\n")
+	logf("[Tencent] SKIP: no scrapable model listing (check cloud.tencent.com/product/hunyuan)\n")
+	logf("[Microsoft] SKIP: no scrapable model listing (check ai.azure.com)\n")
+	logf("[Xiaomi] SKIP: no scrapable model listing (check platform.xiaomimimo.com)\n")
+	logf("[Kuaishou] SKIP: no scrapable model listing (check kwaipilot.com)\n")
 
 	logf("\n=== Summary ===\n")
 	if hasChanges {
@@ -540,14 +546,14 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 
 	// Step 1: Get current data.go content and blob SHA.
 	fileURL := fmt.Sprintf("%s/repos/%s/contents/%s", apiBase, repo, filePath)
-	resp, err := doReq(http.MethodGet, fileURL, nil)
+	fileResp, err := doReq(http.MethodGet, fileURL, nil)
 	if err != nil {
 		fmt.Printf("[GitHub PR] failed to get file: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("[GitHub PR] failed to get file: HTTP %d\n", resp.StatusCode)
+	defer fileResp.Body.Close()
+	if fileResp.StatusCode != http.StatusOK {
+		fmt.Printf("[GitHub PR] failed to get file: HTTP %d\n", fileResp.StatusCode)
 		return
 	}
 
@@ -555,7 +561,7 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 		SHA     string `json:"sha"`
 		Content string `json:"content"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&fileInfo); err != nil {
+	if err := json.NewDecoder(fileResp.Body).Decode(&fileInfo); err != nil {
 		fmt.Printf("[GitHub PR] failed to decode file info: %v\n", err)
 		return
 	}
@@ -586,30 +592,31 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 
 	// Step 3: Get main branch SHA.
 	refURL := fmt.Sprintf("%s/repos/%s/git/ref/heads/main", apiBase, repo)
-	resp, err = doReq(http.MethodGet, refURL, nil)
+	refResp, err := doReq(http.MethodGet, refURL, nil)
 	if err != nil {
 		fmt.Printf("[GitHub PR] failed to get main ref: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("[GitHub PR] failed to get main ref: HTTP %d\n", resp.StatusCode)
-		return
-	}
-
 	var refInfo struct {
 		Object struct {
 			SHA string `json:"sha"`
 		} `json:"object"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&refInfo); err != nil {
+	if refResp.StatusCode != http.StatusOK {
+		refResp.Body.Close()
+		fmt.Printf("[GitHub PR] failed to get main ref: HTTP %d\n", refResp.StatusCode)
+		return
+	}
+	err = json.NewDecoder(refResp.Body).Decode(&refInfo)
+	refResp.Body.Close()
+	if err != nil {
 		fmt.Printf("[GitHub PR] failed to decode ref info: %v\n", err)
 		return
 	}
 
 	// Step 4: Create new branch.
 	createRefURL := fmt.Sprintf("%s/repos/%s/git/refs", apiBase, repo)
-	resp, err = doReq(http.MethodPost, createRefURL, map[string]string{
+	branchResp, err := doReq(http.MethodPost, createRefURL, map[string]string{
 		"ref": "refs/heads/" + branchName,
 		"sha": refInfo.Object.SHA,
 	})
@@ -617,17 +624,18 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 		fmt.Printf("[GitHub PR] failed to create branch: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		fmt.Printf("[GitHub PR] failed to create branch (HTTP %d): %s\n", resp.StatusCode, string(body))
+	if branchResp.StatusCode != http.StatusCreated {
+		errBody, _ := io.ReadAll(io.LimitReader(branchResp.Body, 512))
+		branchResp.Body.Close()
+		fmt.Printf("[GitHub PR] failed to create branch (HTTP %d): %s\n", branchResp.StatusCode, string(errBody))
 		return
 	}
+	branchResp.Body.Close()
 
 	// Step 5: Update file on new branch.
 	sort.Strings(missingIDs)
 	commitMsg := fmt.Sprintf("auto: deprecate %s (removed from provider docs)", strings.Join(missingIDs, ", "))
-	resp, err = doReq(http.MethodPut, fileURL, map[string]string{
+	updateResp, err := doReq(http.MethodPut, fileURL, map[string]string{
 		"message": commitMsg,
 		"content": base64.StdEncoding.EncodeToString([]byte(content)),
 		"sha":     fileInfo.SHA,
@@ -637,12 +645,13 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 		fmt.Printf("[GitHub PR] failed to update file: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		fmt.Printf("[GitHub PR] failed to update file (HTTP %d): %s\n", resp.StatusCode, string(body))
+	if updateResp.StatusCode != http.StatusOK && updateResp.StatusCode != http.StatusCreated {
+		errBody, _ := io.ReadAll(io.LimitReader(updateResp.Body, 512))
+		updateResp.Body.Close()
+		fmt.Printf("[GitHub PR] failed to update file (HTTP %d): %s\n", updateResp.StatusCode, string(errBody))
 		return
 	}
+	updateResp.Body.Close()
 
 	// Step 6: Create pull request.
 	prURL := fmt.Sprintf("%s/repos/%s/pulls", apiBase, repo)
@@ -652,7 +661,7 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 	}
 	prBody += fmt.Sprintf("\n<details>\n<summary>Full update report</summary>\n\n```\n%s\n```\n</details>", reportBody)
 
-	resp, err = doReq(http.MethodPost, prURL, map[string]any{
+	prResp, err := doReq(http.MethodPost, prURL, map[string]any{
 		"title": "auto: deprecate models removed from provider docs — " + today,
 		"body":  prBody,
 		"head":  branchName,
@@ -662,38 +671,48 @@ func createDeprecationPR(ctx context.Context, client *http.Client, missingIDs []
 		fmt.Printf("[GitHub PR] failed to create PR: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer prResp.Body.Close()
 
-	if resp.StatusCode == http.StatusCreated {
+	if prResp.StatusCode == http.StatusCreated {
 		var pr struct {
 			HTMLURL string `json:"html_url"`
 			Number  int    `json:"number"`
 		}
-		_ = json.NewDecoder(resp.Body).Decode(&pr)
+		_ = json.NewDecoder(prResp.Body).Decode(&pr)
 		fmt.Printf("[GitHub PR] Created: %s\n", pr.HTMLURL)
 		labelURL := fmt.Sprintf("%s/repos/%s/issues/%d/labels", apiBase, repo, pr.Number)
-		resp, err = doReq(http.MethodPost, labelURL, []string{"auto-update"})
-		if err == nil {
-			defer resp.Body.Close()
+		labelResp, labelErr := doReq(http.MethodPost, labelURL, []string{"auto-update"})
+		if labelErr == nil {
+			labelResp.Body.Close()
 		}
 	} else {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		fmt.Printf("[GitHub PR] Failed to create PR (HTTP %d): %s\n", resp.StatusCode, string(body))
+		errBody, _ := io.ReadAll(io.LimitReader(prResp.Body, 512))
+		fmt.Printf("[GitHub PR] Failed to create PR (HTTP %d): %s\n", prResp.StatusCode, string(errBody))
 	}
 }
 
+// dateStampRe matches model IDs ending with a date stamp in YYYYMMDD or
+// YYYY-MM-DD format (e.g. "gpt-5-2025-08-07" or "gpt-4.1-20250414").
 var dateStampRe = regexp.MustCompile(`-(?:\d{8}|\d{4}-\d{2}-\d{2})$`)
 
+// isDateStampVariant reports whether id ends with a date-stamp suffix,
+// which indicates a pinned snapshot rather than a distinct new model.
 func isDateStampVariant(id string) bool {
 	return dateStampRe.MatchString(id)
 }
 
+// aliasSuffixes lists well-known suffixes that providers append to a base
+// model ID to create convenience aliases (e.g. "gpt-5-chat-latest").
+// IDs whose suffix (after the last dash relative to a known model) appears
+// here are treated as aliases rather than new models.
 var aliasSuffixes = map[string]bool{
 	"latest": true, "beta": true, "preview": true,
 	"chat-latest": true, "non-reasoning": true, "reasoning": true,
 	"non-reasoning-latest": true, "reasoning-latest": true,
 }
 
+// isAllDigits reports whether s is a non-empty string composed entirely of
+// ASCII digits.
 func isAllDigits(s string) bool {
 	if len(s) == 0 {
 		return false
@@ -706,6 +725,14 @@ func isAllDigits(s string) bool {
 	return true
 }
 
+// isKnownAlias reports whether id is a variant of an already-known model.
+// It checks three heuristics:
+//  1. id is a prefix of a known ID whose remaining suffix is all-digits
+//     (e.g. known "gpt-5-mini-2025" when id is "gpt-5-mini").
+//  2. id extends a known ID with a well-known alias suffix
+//     (e.g. "gpt-5-chat-latest" when "gpt-5" is known).
+//  3. id shares a base name with a known ID and both have ≥4-digit numeric
+//     suffixes (e.g. "codestral-2405" when "codestral-2508" is known).
 func isKnownAlias(id string, known map[string]bool) bool {
 	for knownID := range known {
 		if knownID != id && strings.HasPrefix(knownID, id+"-") {
@@ -730,7 +757,7 @@ func isKnownAlias(id string, known map[string]bool) bool {
 			}
 			for knownID := range known {
 				if kd := strings.LastIndex(knownID, "-"); kd > 0 {
-					if id[:lastDash] == knownID[:kd] && isAllDigits(knownID[kd+1:]) {
+					if idBase == knownID[:kd] && isAllDigits(knownID[kd+1:]) {
 						return true
 					}
 				}
@@ -740,6 +767,10 @@ func isKnownAlias(id string, known map[string]bool) bool {
 	return false
 }
 
+// diff compares the set of known model IDs against those scraped from
+// documentation. It returns IDs found in docs but not in known (newModels)
+// and IDs in known but absent from docs (missing), filtering out date-stamp
+// variants and known aliases from the "new" list.
 func diff(known map[string]bool, docIDs []string) (newModels, missing []string) {
 	docSet := make(map[string]bool, len(docIDs))
 	for _, id := range docIDs {
