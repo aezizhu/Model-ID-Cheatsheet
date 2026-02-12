@@ -317,3 +317,211 @@ func TestDiff_KeepsGenuineNewModels(t *testing.T) {
 		t.Errorf("genuinely new model should appear, got newModels = %v", newModels)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// OpenAI ExcludePattern verification (PR #4 review checklist)
+// ---------------------------------------------------------------------------
+
+func TestOpenAIExcludePattern(t *testing.T) {
+	re := docSources["OpenAI"].ExcludePattern
+
+	// These should be EXCLUDED (regex matches → filtered out as legacy).
+	shouldExclude := []string{
+		"gpt-3.5-turbo",
+		"gpt-4",
+		"gpt-4-turbo",
+		"o1",
+		"o1-mini",
+		"o1-preview",
+	}
+	for _, id := range shouldExclude {
+		if !re.MatchString(id) {
+			t.Errorf("ExcludePattern should match %q (legacy model), but it did not", id)
+		}
+	}
+
+	// These should NOT be excluded (regex must not match → kept as current).
+	shouldKeep := []string{
+		"gpt-4o",
+		"gpt-4o-mini",
+		"gpt-4.1",
+		"gpt-4.1-mini",
+		"gpt-4.1-nano",
+		"gpt-5",
+		"gpt-5.1",
+		"gpt-5.2",
+		"o3",
+		"o3-pro",
+		"o3-mini",
+		"o4-mini",
+	}
+	for _, id := range shouldKeep {
+		if re.MatchString(id) {
+			t.Errorf("ExcludePattern should NOT match %q (current model), but it did", id)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// xAI NormalizeRe verification (PR #4 review checklist)
+// ---------------------------------------------------------------------------
+
+func TestXAINormalizeRe(t *testing.T) {
+	src := docSources["xAI"]
+	re := src.NormalizeRe
+	repl := src.NormalizeRepl
+
+	tests := []struct {
+		input string
+		want  string
+	}{
+		// Single-digit-dash-single-digit followed by non-digit → should normalize.
+		{"grok-4-1-fast", "grok-4.1-fast"},
+		{"grok-4-1", "grok-4.1"},
+		// 4-digit date suffix: 4-0 is followed by digit 7, so no match → unchanged.
+		{"grok-4-0709", "grok-4-0709"},
+		// No digit-dash-digit pattern → unchanged.
+		{"grok-3-mini", "grok-3-mini"},
+		{"grok-code-fast-1", "grok-code-fast-1"},
+	}
+	for _, tt := range tests {
+		got := re.ReplaceAllString(tt.input, repl)
+		if got != tt.want {
+			t.Errorf("NormalizeRe(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// isKnownAlias: additional coverage for bare base model (PR #4 review checklist)
+// ---------------------------------------------------------------------------
+
+func TestIsKnownAlias_NumericVariant_BareBase(t *testing.T) {
+	// Heuristic 3, first branch: known set contains the bare base (no numeric suffix).
+	known := map[string]bool{"devstral": true}
+	if !isKnownAlias("devstral-2507", known) {
+		t.Error("expected devstral-2507 to be recognized as numeric variant of bare base devstral")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// docSources ExcludePattern / NormalizeRe field presence sanity checks
+// ---------------------------------------------------------------------------
+
+func TestDocSources_OpenAIHasExcludePattern(t *testing.T) {
+	src, ok := docSources["OpenAI"]
+	if !ok {
+		t.Fatal("OpenAI missing from docSources")
+	}
+	if src.ExcludePattern == nil {
+		t.Fatal("OpenAI ExcludePattern is nil")
+	}
+}
+
+func TestDocSources_XAIHasNormalizeRe(t *testing.T) {
+	src, ok := docSources["xAI"]
+	if !ok {
+		t.Fatal("xAI missing from docSources")
+	}
+	if src.NormalizeRe == nil {
+		t.Fatal("xAI NormalizeRe is nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// xAI pattern + normalization end-to-end: ensure extracting from raw HTML-like
+// content and normalizing produces the expected model IDs.
+// ---------------------------------------------------------------------------
+
+func TestXAIPatternAndNormalize_EndToEnd(t *testing.T) {
+	src := docSources["xAI"]
+	// Simulate HTML snippets containing model IDs in various forms.
+	content := `"grok-4-1-fast" and "grok-4-0709" and "grok-3-mini"`
+
+	matches := src.Pattern.FindAllStringSubmatch(content, -1)
+	var ids []string
+	for _, m := range matches {
+		if len(m) >= 2 {
+			ids = append(ids, m[1])
+		}
+	}
+	// Apply normalization.
+	for i, id := range ids {
+		ids[i] = src.NormalizeRe.ReplaceAllString(id, src.NormalizeRepl)
+	}
+
+	// Verify expected output.
+	expected := map[string]bool{
+		"grok-4.1-fast": true, // normalized from grok-4-1-fast
+		"grok-4-0709":   true, // unchanged (date suffix)
+		"grok-3-mini":   true, // unchanged (non-digit after 3)
+	}
+	for _, id := range ids {
+		if !expected[id] {
+			t.Errorf("unexpected normalized ID %q", id)
+		}
+		delete(expected, id)
+	}
+	for id := range expected {
+		t.Errorf("expected ID %q not found in output", id)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Verify xAI ExcludePattern filters image/vision models
+// ---------------------------------------------------------------------------
+
+func TestXAIExcludePattern(t *testing.T) {
+	re := docSources["xAI"].ExcludePattern
+
+	shouldExclude := []string{
+		"grok-2-vision-1212",
+		"grok-image-gen",
+		"grok-imagine-1",
+		"grok-2-video-gen",
+	}
+	for _, id := range shouldExclude {
+		if !re.MatchString(id) {
+			t.Errorf("xAI ExcludePattern should match %q, but it did not", id)
+		}
+	}
+
+	shouldKeep := []string{
+		"grok-4",
+		"grok-4-1-fast",
+		"grok-3-mini",
+		"grok-code-fast-1",
+	}
+	for _, id := range shouldKeep {
+		if re.MatchString(id) {
+			t.Errorf("xAI ExcludePattern should NOT match %q, but it did", id)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Verify OpenAI pattern extracts expected model IDs
+// ---------------------------------------------------------------------------
+
+func TestOpenAIPattern(t *testing.T) {
+	re := docSources["OpenAI"].Pattern
+
+	// Simulated content from OpenAI's chat_model.py
+	content := `"gpt-4o", "gpt-4o-mini", "gpt-5", "gpt-3.5-turbo", "o1-mini", "o3-pro", "o4-mini"`
+
+	matches := re.FindAllStringSubmatch(content, -1)
+	found := make(map[string]bool)
+	for _, m := range matches {
+		if len(m) >= 2 {
+			found[m[1]] = true
+		}
+	}
+
+	expected := []string{"gpt-4o", "gpt-4o-mini", "gpt-5", "gpt-3.5-turbo", "o1-mini", "o3-pro", "o4-mini"}
+	for _, id := range expected {
+		if !found[id] {
+			t.Errorf("OpenAI Pattern should extract %q, but did not", id)
+		}
+	}
+}
+

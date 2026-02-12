@@ -32,6 +32,9 @@ var docSources = map[string]DocSource{
 	"OpenAI": {
 		URLs: []string{
 			"https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/shared/chat_model.py",
+			"https://cdn.jsdelivr.net/gh/openai/openai-python@main/src/openai/types/shared/chat_model.py",
+			"https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/shared/all_models.py",
+			"https://cdn.jsdelivr.net/gh/openai/openai-python@main/src/openai/types/shared/all_models.py",
 		},
 		Pattern:        regexp.MustCompile(`(?:"|')((?:gpt-[0-9][a-z0-9._-]*|o[0-9](?:-[a-z0-9-]+)*))`),
 		ExcludePattern: regexp.MustCompile(`^gpt-(?:3\.|4(?:-|$))|^o1(?:-|$)`),
