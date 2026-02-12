@@ -10,12 +10,12 @@
   "version": "1.3.0",
   "remotes": [
     {
-      "type": "streamable-http",
-      "url": "https://universal-model-registry-production.up.railway.app/mcp"
-    },
-    {
       "type": "sse",
       "url": "https://universal-model-registry-production.up.railway.app/sse"
+    },
+    {
+      "type": "streamable-http",
+      "url": "https://universal-model-registry-production.up.railway.app/mcp"
     }
   ]
 }
