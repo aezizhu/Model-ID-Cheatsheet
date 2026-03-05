@@ -412,6 +412,60 @@ func TestXAINormalizeRe(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// normalizeMistralID tests
+// ---------------------------------------------------------------------------
+
+func TestNormalizeMistralID(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		// Long-form → short-form conversions
+		{"mistral-small-3-1-25-03", "mistral-small-2503"},
+		{"mistral-large-3-25-12", "mistral-large-2512"},
+		{"codestral-25-08", "codestral-2508"},
+		{"codestral-24-05", "codestral-2405"},
+		{"devstral-small-2-25-12", "devstral-small-2512"},
+		{"devstral-medium-1-0-25-07", "devstral-medium-2507"},
+		{"magistral-medium-1-2-25-09", "magistral-medium-2509"},
+		{"magistral-small-1-0-25-06", "magistral-small-2506"},
+		{"ministral-3-14b-25-12", "ministral-14b-2512"}, // "3" is a version digit (stripped), "14b" is alphanumeric (kept)
+		{"mistral-small-creative-25-12", "mistral-small-creative-2512"},
+		{"mistral-medium-1-0-23-12", "mistral-medium-2312"},
+		// Already short-form → unchanged
+		{"mistral-small-2503", "mistral-small-2503"},     // ends with 4-digit suffix, not 2-2
+		{"codestral-2508", "codestral-2508"},               // only 2 parts
+		{"mistral-saba-2502", "mistral-saba-2502"},         // "saba" is not digits
+		// Edge cases → unchanged
+		{"mistral-large", "mistral-large"},                 // no numeric suffix
+		{"codestral", "codestral"},                         // single part
+	}
+	for _, tt := range tests {
+		got := normalizeMistralID(tt.input)
+		if got != tt.want {
+			t.Errorf("normalizeMistralID(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// isKnownAlias: mini/nano alias suffix tests
+// ---------------------------------------------------------------------------
+
+func TestIsKnownAlias_MiniNanoSuffix(t *testing.T) {
+	// A deprecated base model (e.g. gpt-4.1) should be recognized as an alias
+	// when its mini/nano variants are in the known set.
+	known := map[string]bool{
+		"gpt-4.1-mini": true,
+		"gpt-4.1-nano": true,
+	}
+	// Heuristic 2b: known "gpt-4.1-mini" extends scraped "gpt-4.1" with suffix "mini"
+	if !isKnownAlias("gpt-4.1", known) {
+		t.Error("expected gpt-4.1 to be recognized as alias via mini/nano suffix")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // isKnownAlias: additional coverage for bare base model (PR #4 review checklist)
 // ---------------------------------------------------------------------------
 
