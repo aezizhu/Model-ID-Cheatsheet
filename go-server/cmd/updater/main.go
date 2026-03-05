@@ -17,12 +17,47 @@ import (
 // DocSource describes a public documentation page to scrape for model IDs.
 // No API keys needed — these are all publicly accessible pages.
 type DocSource struct {
-	URLs           []string       // URLs to try in order (fallbacks)
-	Pattern        *regexp.Regexp // Regex to extract model IDs from page content
-	ExcludePattern *regexp.Regexp // Optional: exclude matched IDs containing this pattern
-	Lowercase      bool           // Lowercase extracted IDs before comparison
-	NormalizeRe    *regexp.Regexp // Optional: normalize extracted IDs (regex)
-	NormalizeRepl  string         // Replacement for NormalizeRe
+	URLs           []string                // URLs to try in order (fallbacks)
+	Pattern        *regexp.Regexp          // Regex to extract model IDs from page content
+	ExcludePattern *regexp.Regexp          // Optional: exclude matched IDs containing this pattern
+	Lowercase      bool                    // Lowercase extracted IDs before comparison
+	NormalizeRe    *regexp.Regexp          // Optional: normalize extracted IDs (regex)
+	NormalizeRepl  string                  // Replacement for NormalizeRe
+	NormalizeFunc  func(string) string     // Optional: custom normalization function applied after NormalizeRe
+}
+
+// normalizeMistralID converts Mistral's long-form versioned API names to our
+// short-form registry names. For example:
+//
+//	mistral-small-3-1-25-03 → mistral-small-2503
+//	codestral-25-08         → codestral-2508
+//	devstral-small-2-25-12  → devstral-small-2512
+//
+// If the ID doesn't match the long-form pattern (e.g. already short-form),
+// it is returned unchanged.
+func normalizeMistralID(id string) string {
+	parts := strings.Split(id, "-")
+	if len(parts) < 3 {
+		return id
+	}
+	// Long-form ends with two 2-digit segments: -{YY}-{MM}
+	yy := parts[len(parts)-2]
+	mm := parts[len(parts)-1]
+	if len(yy) != 2 || len(mm) != 2 || !isAllDigits(yy) || !isAllDigits(mm) {
+		return id
+	}
+	// Base name = non-numeric parts before the date, skipping version digits.
+	// e.g. [ministral, 3, 14b, 25, 12] → base parts = [ministral, 14b]
+	var baseParts []string
+	for _, p := range parts[:len(parts)-2] {
+		if !isAllDigits(p) {
+			baseParts = append(baseParts, p)
+		}
+	}
+	if len(baseParts) == 0 {
+		return id
+	}
+	return strings.Join(baseParts, "-") + "-" + yy + mm
 }
 
 // docSources maps provider name to its public documentation source.
@@ -57,6 +92,7 @@ var docSources = map[string]DocSource{
 		},
 		Pattern:        regexp.MustCompile(`((?:mistral|devstral|codestral|ministral|magistral)(?:-[a-z0-9]+)*-[0-9]{2,4})`),
 		ExcludePattern: regexp.MustCompile(`(?:embed|moderation|ocr|nemo)`),
+		NormalizeFunc:  normalizeMistralID,
 	},
 	"xAI": {
 		URLs: []string{
@@ -354,6 +390,11 @@ func fetchModelsFromDocs(ctx context.Context, client *http.Client, src DocSource
 					ids[i] = src.NormalizeRe.ReplaceAllString(id, src.NormalizeRepl)
 				}
 			}
+			if src.NormalizeFunc != nil {
+				for i, id := range ids {
+					ids[i] = src.NormalizeFunc(id)
+				}
+			}
 			if src.Lowercase {
 				for i, id := range ids {
 					ids[i] = strings.ToLower(id)
@@ -638,6 +679,7 @@ var aliasSuffixes = map[string]bool{
 	"non-reasoning-latest": true, "reasoning-latest": true,
 	"fast": true, "fast-beta": true, "fast-latest": true,
 	"alt": true, "highspeed": true, "lightning": true,
+	"mini": true, "nano": true,
 	"mini-fast": true, "mini-fast-beta": true, "mini-fast-latest": true,
 }
 
