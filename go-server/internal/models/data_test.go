@@ -88,7 +88,7 @@ func TestAtLeastThreeProviders(t *testing.T) {
 }
 
 func TestTotalModelCount(t *testing.T) {
-	const want = 99
+	const want = 102
 	if len(Models) != want {
 		t.Errorf("expected %d models, got %d", want, len(Models))
 	}
@@ -106,10 +106,10 @@ func TestProviderCounts(t *testing.T) {
 		"Google":     10,
 		"xAI":        7,
 		"Meta":       3,
-		"Mistral":    11,
+		"Mistral":    13,
 		"DeepSeek":   4,
 		"Amazon":     6,
-		"Cohere":     4,
+		"Cohere":     5,
 		"Perplexity": 4,
 		"AI21":       2,
 		"Moonshot":   3,

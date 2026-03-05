@@ -142,7 +142,9 @@ var knownModels = map[string]map[string]bool{
 	"Mistral": {
 		"mistral-large-2512":    true,
 		"mistral-medium-2505":   true,
+		"mistral-small-2503":    true,
 		"mistral-small-2506":    true,
+		"mistral-saba-2502":     true,
 		"ministral-3b-2512":     true,
 		"ministral-8b-2512":     true,
 		"ministral-14b-2512":    true,
@@ -171,10 +173,11 @@ var knownModels = map[string]map[string]bool{
 		"amazon-nova-2-pro":   true,
 	},
 	"Cohere": {
-		"command-a-03-2025":           true,
-		"command-a-reasoning-08-2025": true,
-		"command-a-vision-07-2025":    true,
-		"command-r7b-12-2024":         true,
+		"command-a-03-2025":            true,
+		"command-a-reasoning-08-2025":  true,
+		"command-a-vision-07-2025":     true,
+		"command-a-translate-08-2025":  true,
+		"command-r7b-12-2024":          true,
 	},
 	"Perplexity": {
 		"sonar":               true,
