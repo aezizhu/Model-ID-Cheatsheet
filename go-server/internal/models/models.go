@@ -228,8 +228,11 @@ var Aliases = map[string]string{
 	"magistral-small-1.2":  "magistral-small-2509",
 	"magistral-medium":     "magistral-medium-2509",
 	"magistral-medium-1.2": "magistral-medium-2509",
-	"mistral-small":        "mistral-small-2506",
-	"mistral-small-3.2":    "mistral-small-2506",
+	"mistral-small":        "mistral-small-2503",
+	"mistral-small-3.1":    "mistral-small-2503",
+	"mistral-small-latest": "mistral-small-2503",
+	"mistral-saba":         "mistral-saba-2502",
+	"saba":                 "mistral-saba-2502",
 	"devstral":             "devstral-2512",
 	"devstral-2":           "devstral-2512",
 	"mistral-medium":       "mistral-medium-2505",
@@ -267,6 +270,7 @@ var Aliases = map[string]string{
 	"cohere-command-a":    "command-a-03-2025",
 	"command-a-reasoning": "command-a-reasoning-08-2025",
 	"command-a-vision":    "command-a-vision-07-2025",
+	"command-a-translate": "command-a-translate-08-2025",
 	"command-r7b":         "command-r7b-12-2024",
 
 	// ─── Perplexity Aliases ────────────────────────────────────────
