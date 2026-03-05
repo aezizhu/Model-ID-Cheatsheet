@@ -55,7 +55,8 @@ func TestListModels_FilterByVision(t *testing.T) {
 	result := ListModels("", "", "vision")
 	for _, m := range models.Models {
 		if !m.Vision {
-			if strings.Contains(result, "| "+m.ID+" |") {
+			// Check for both plain and star-prefixed model IDs in the table.
+			if strings.Contains(result, "| "+m.ID+" |") || strings.Contains(result, "| ★ "+m.ID+" |") {
 				t.Errorf("non-vision model %q should not appear in vision filter", m.ID)
 			}
 		}
@@ -66,7 +67,8 @@ func TestListModels_FilterByReasoning(t *testing.T) {
 	result := ListModels("", "", "reasoning")
 	for _, m := range models.Models {
 		if !m.Reasoning {
-			if strings.Contains(result, "| "+m.ID+" |") {
+			// Check for both plain and star-prefixed model IDs in the table.
+			if strings.Contains(result, "| "+m.ID+" |") || strings.Contains(result, "| ★ "+m.ID+" |") {
 				t.Errorf("non-reasoning model %q should not appear in reasoning filter", m.ID)
 			}
 		}
@@ -450,11 +452,10 @@ func TestFilterModels_CombinedFilters(t *testing.T) {
 }
 
 func TestFilterModels_UnknownCapability(t *testing.T) {
-	all := FilterModels("", "", "")
 	unknown := FilterModels("", "", "teleportation")
-	// Unknown capability falls through to default (returns all)
-	if len(unknown) != len(all) {
-		t.Errorf("unknown capability should return all models, got %d vs %d", len(unknown), len(all))
+	// Unknown capability should return no results (no models have this capability).
+	if len(unknown) != 0 {
+		t.Errorf("unknown capability should return 0 models, got %d", len(unknown))
 	}
 }
 
@@ -506,9 +507,8 @@ func TestCaps_None(t *testing.T) {
 
 func TestGetModelInfo_EmptyString(t *testing.T) {
 	result := GetModelInfo("")
-	// Empty string may partial-match everything; just ensure no panic
-	if result == "" {
-		t.Error("expected non-empty result for empty input")
+	if !strings.Contains(result, "Please provide a model ID") {
+		t.Errorf("expected 'Please provide a model ID' for empty input, got: %s", result)
 	}
 }
 

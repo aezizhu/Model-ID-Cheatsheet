@@ -42,7 +42,8 @@ func CheckModelStatus(modelID string) string {
 			}
 			di := math.Abs(replacements[i].PricingInput - m.PricingInput)
 			dj := math.Abs(replacements[j].PricingInput - m.PricingInput)
-			if di != dj {
+			// Use epsilon comparison to avoid float equality issues.
+			if math.Abs(di-dj) > 1e-9 {
 				return di < dj
 			}
 			return replacements[i].ID < replacements[j].ID

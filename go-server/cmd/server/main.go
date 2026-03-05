@@ -65,7 +65,7 @@ func newServer() *mcp.Server {
 		Name:        "list_models",
 		Description: "List AI models with optional filters for provider, status, and capability.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, input tools.ListModelsInput) (*mcp.CallToolResult, any, error) {
-		result := tools.ListModels(input.Provider, input.Status, input.Capability)
+		result := tools.ListModels(truncate(input.Provider, 256), truncate(input.Status, 64), truncate(input.Capability, 64))
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: result}},
 		}, nil, nil

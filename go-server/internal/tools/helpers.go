@@ -315,7 +315,7 @@ func FilterModels(provider, status, capability string) []models.Model {
 				}
 			}
 		default:
-			filtered = results
+			// Unknown capability — return no results (no models have this capability).
 		}
 		results = filtered
 	}
