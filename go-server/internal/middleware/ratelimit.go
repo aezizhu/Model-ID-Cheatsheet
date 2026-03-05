@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -48,6 +49,7 @@ type Limiter struct {
 	totalConn int
 	cfg       Config
 	stopCh    chan struct{}
+	stopOnce  sync.Once
 }
 
 // NewLimiter creates a new rate limiter with the given config.
@@ -82,21 +84,22 @@ func (l *Limiter) cleanup() {
 	}
 }
 
-// Stop terminates the background cleanup goroutine.
+// Stop terminates the background cleanup goroutine. Safe to call multiple times.
 func (l *Limiter) Stop() {
-	close(l.stopCh)
+	l.stopOnce.Do(func() {
+		close(l.stopCh)
+	})
 }
 
 func extractIP(r *http.Request) string {
 	// Trust X-Forwarded-For from Railway's reverse proxy.
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		// First IP in the chain is the client.
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
-			}
+		ip := xff
+		if idx := strings.IndexByte(xff, ','); idx != -1 {
+			ip = xff[:idx]
 		}
-		return xff
+		return strings.TrimSpace(ip)
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
