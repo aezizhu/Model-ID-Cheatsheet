@@ -136,6 +136,7 @@ var knownModels = map[string]map[string]bool{
 	// (otherwise they appear as false "MISSING" every run).
 	"OpenAI": {
 		"gpt-5.4":             true,
+		"gpt-5.4-pro":         true,
 		"gpt-5.3-chat-latest": true,
 		"gpt-5.2":             true,
 		"gpt-5.2-pro":         true,

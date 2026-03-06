@@ -26,9 +26,13 @@ type Model struct {
 var Aliases = map[string]string{
 	// ─── OpenAI Aliases ────────────────────────────────────────────
 	// GPT-5.4
-	"gpt54":    "gpt-5.4",
-	"gpt5.4":   "gpt-5.4",
-	"gpt-5-4":  "gpt-5.4",
+	"gpt54":        "gpt-5.4",
+	"gpt5.4":       "gpt-5.4",
+	"gpt-5-4":      "gpt-5.4",
+	"gpt54pro":     "gpt-5.4-pro",
+	"gpt5.4pro":    "gpt-5.4-pro",
+	"gpt-5-4-pro":  "gpt-5.4-pro",
+	"gpt5.4-pro":   "gpt-5.4-pro",
 
 	// GPT-5.3 series
 	"gpt53codex":         "gpt-5.3-codex",
