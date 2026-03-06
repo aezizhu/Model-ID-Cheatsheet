@@ -1,0 +1,49 @@
+{
+  "openai": {
+    "ignore_patterns": [
+      "-audio-preview$",
+      "-search-preview$"
+    ],
+    "aliases": {}
+  },
+  "mistral": {
+    "ignore_patterns": [
+      "-latest$",
+      "-beta$",
+      "^mistral-embed",
+      "^mistral-moderation",
+      "^mistral-ocr",
+      "^mistral-nemo"
+    ],
+    "aliases": {}
+  },
+  "xai": {
+    "ignore_patterns": [
+      ".*prompt-engineering.*",
+      "-beta$",
+      "-latest$",
+      "^grok-2(-|$)"
+    ],
+    "aliases": {}
+  },
+  "deepseek": {
+    "ignore_patterns": [],
+    "aliases": {}
+  },
+  "google": {
+    "ignore_patterns": [],
+    "aliases": {}
+  },
+  "anthropic": {
+    "ignore_patterns": [],
+    "aliases": {}
+  },
+  "zhipu": {
+    "ignore_patterns": [],
+    "aliases": {}
+  },
+  "minimax": {
+    "ignore_patterns": [],
+    "aliases": {}
+  }
+}

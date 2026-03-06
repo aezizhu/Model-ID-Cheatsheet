@@ -1,8 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
+	"time"
 
 	"go-server/internal/models"
 )
@@ -620,6 +627,198 @@ func TestOpenAIPattern(t *testing.T) {
 		if !found[id] {
 			t.Errorf("OpenAI Pattern should extract %q, but did not", id)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// fingerprintModels tests
+// ---------------------------------------------------------------------------
+
+func TestFingerprintModels(t *testing.T) {
+	// Same IDs in different order produce same hash
+	h1 := fingerprintModels([]string{"gpt-5", "claude-opus-4-6", "gemini-2.5-pro"})
+	h2 := fingerprintModels([]string{"gemini-2.5-pro", "gpt-5", "claude-opus-4-6"})
+	if h1 != h2 {
+		t.Errorf("expected same hash for same IDs in different order, got %s vs %s", h1, h2)
+	}
+
+	// Different IDs produce different hash
+	h3 := fingerprintModels([]string{"gpt-5", "gpt-5-mini"})
+	if h1 == h3 {
+		t.Error("expected different hash for different IDs")
+	}
+
+	// Empty input produces consistent hash
+	h4 := fingerprintModels([]string{})
+	h5 := fingerprintModels([]string{})
+	if h4 != h5 {
+		t.Error("expected consistent hash for empty input")
+	}
+
+	// Hash is valid hex string of expected length (SHA-256 = 64 hex chars)
+	if len(h1) != 64 {
+		t.Errorf("expected 64 char hex hash, got %d chars", len(h1))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Circuit breaker threshold tests
+// ---------------------------------------------------------------------------
+
+func TestCircuitBreakerThreshold(t *testing.T) {
+	// When scraped is 0 and known > 0, circuit breaker should trigger
+	// (tested via the logic: len(ids) == 0 && len(known) > 0)
+	known := map[string]bool{"gpt-5": true, "gpt-5-mini": true}
+	ids := []string{}
+
+	// Circuit breaker condition
+	if !(len(ids) == 0 && len(known) > 0) {
+		t.Error("circuit breaker should trigger when scraped is empty but known has entries")
+	}
+
+	// When scraped has items, circuit breaker should NOT trigger
+	ids2 := []string{"gpt-5"}
+	if len(ids2) == 0 && len(known) > 0 {
+		t.Error("circuit breaker should not trigger when scraped has items")
+	}
+
+	// Sanity check threshold: scraped*5 < known means suspiciously low
+	known10 := make(map[string]bool)
+	for i := 0; i < 10; i++ {
+		known10[fmt.Sprintf("model-%d", i)] = true
+	}
+	scrapedLow := []string{"model-0"}
+	if !(len(scrapedLow)*5 < len(known10)) {
+		t.Error("expected warning threshold to trigger: 1*5=5 < 10")
+	}
+
+	scrapedOk := []string{"m1", "m2", "m3"}
+	if len(scrapedOk)*5 < len(known10) {
+		t.Error("should not warn: 3*5=15 >= 10")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// applyNormalization tests
+// ---------------------------------------------------------------------------
+
+func TestApplyNormalization(t *testing.T) {
+	// Unknown provider passes through unchanged
+	ids := applyNormalization("unknown-provider", []string{"model-a", "model-b"})
+	if len(ids) != 2 {
+		t.Errorf("unknown provider: expected 2 models, got %d", len(ids))
+	}
+
+	// Mistral: ignore patterns filter correctly
+	mistralIDs := applyNormalization("mistral", []string{
+		"mistral-large-2512",
+		"mistral-embed-23",
+		"mistral-moderation-24",
+		"mistral-nemo-12",
+		"mistral-ocr-2503",
+		"mistral-small-2506",
+		"mistral-saba-2502-latest",
+		"mistral-saba-2502-beta",
+	})
+	for _, id := range mistralIDs {
+		if strings.Contains(id, "embed") || strings.Contains(id, "moderation") ||
+			strings.Contains(id, "nemo") || strings.Contains(id, "ocr") ||
+			strings.HasSuffix(id, "-latest") || strings.HasSuffix(id, "-beta") {
+			t.Errorf("mistral normalization should have filtered %q", id)
+		}
+	}
+	// mistral-large-2512 and mistral-small-2506 should survive
+	found := map[string]bool{}
+	for _, id := range mistralIDs {
+		found[id] = true
+	}
+	if !found["mistral-large-2512"] {
+		t.Error("expected mistral-large-2512 to survive normalization")
+	}
+	if !found["mistral-small-2506"] {
+		t.Error("expected mistral-small-2506 to survive normalization")
+	}
+}
+
+func TestApplyNormalizationXAI(t *testing.T) {
+	xaiIDs := applyNormalization("xai", []string{
+		"grok-4",
+		"grok-4.1-fast",
+		"grok-code-prompt-engineering",
+		"grok-2",
+		"grok-2-1212",
+		"grok-3-fast-beta",
+		"grok-3-fast-latest",
+	})
+	blocked := map[string]bool{
+		"grok-code-prompt-engineering": true,
+		"grok-2":                       true,
+		"grok-2-1212":                  true,
+		"grok-3-fast-beta":             true,
+		"grok-3-fast-latest":           true,
+	}
+	for _, id := range xaiIDs {
+		if blocked[id] {
+			t.Errorf("xai normalization should have filtered %q", id)
+		}
+	}
+	// grok-4 and grok-4.1-fast should survive
+	survived := map[string]bool{}
+	for _, id := range xaiIDs {
+		survived[id] = true
+	}
+	if !survived["grok-4"] {
+		t.Error("expected grok-4 to survive")
+	}
+	if !survived["grok-4.1-fast"] {
+		t.Error("expected grok-4.1-fast to survive")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// fetchModelsFromAPI tests
+// ---------------------------------------------------------------------------
+
+func TestFetchModelsFromAPI(t *testing.T) {
+	// Mock a /v1/models endpoint
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-key" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{
+				{"id": "gpt-5"},
+				{"id": "gpt-5-mini"},
+				{"id": "o3"},
+			},
+		})
+	}))
+	defer ts.Close()
+
+	ctx := context.Background()
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	// Success case
+	ids, err := fetchModelsFromAPI(ctx, client, ts.URL, "test-key")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(ids) != 3 {
+		t.Errorf("expected 3 models, got %d", len(ids))
+	}
+
+	// Auth failure
+	_, err = fetchModelsFromAPI(ctx, client, ts.URL, "wrong-key")
+	if err == nil {
+		t.Error("expected error for wrong API key")
+	}
+
+	// Invalid URL
+	_, err = fetchModelsFromAPI(ctx, client, "http://localhost:1/nonexistent", "key")
+	if err == nil {
+		t.Error("expected error for invalid URL")
 	}
 }
 

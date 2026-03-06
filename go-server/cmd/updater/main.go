@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -58,6 +61,73 @@ func normalizeMistralID(id string) string {
 		return id
 	}
 	return strings.Join(baseParts, "-") + "-" + yy + mm
+}
+
+//go:embed normalization.json
+var normalizationJSON []byte
+
+type NormalizationRules struct {
+	IgnorePatterns []string          `json:"ignore_patterns"`
+	Aliases        map[string]string `json:"aliases"`
+}
+type NormalizationConfig map[string]NormalizationRules
+
+var normConfig NormalizationConfig
+var normIgnoreCompiled map[string][]*regexp.Regexp
+
+func init() {
+	if err := json.Unmarshal(normalizationJSON, &normConfig); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to parse normalization.json: %v\n", err)
+		normConfig = NormalizationConfig{}
+	}
+	normIgnoreCompiled = make(map[string][]*regexp.Regexp)
+	for provider, rules := range normConfig {
+		for _, pat := range rules.IgnorePatterns {
+			if re, err := regexp.Compile(pat); err == nil {
+				normIgnoreCompiled[provider] = append(normIgnoreCompiled[provider], re)
+			}
+		}
+	}
+}
+
+func applyNormalization(provider string, ids []string) []string {
+	provider = strings.ToLower(provider)
+	ignores := normIgnoreCompiled[provider]
+	rules, hasRules := normConfig[provider]
+
+	if !hasRules && len(ignores) == 0 {
+		return ids
+	}
+
+	seen := make(map[string]bool, len(ids))
+	var result []string
+	for _, id := range ids {
+		// Check ignore patterns
+		ignored := false
+		for _, re := range ignores {
+			if re.MatchString(id) {
+				ignored = true
+				break
+			}
+		}
+		if ignored {
+			continue
+		}
+
+		// Apply alias mapping
+		if hasRules {
+			if alias, ok := rules.Aliases[id]; ok {
+				id = alias
+			}
+		}
+
+		// Deduplicate
+		if !seen[id] {
+			seen[id] = true
+			result = append(result, id)
+		}
+	}
+	return result
 }
 
 // docSources maps provider name to its public documentation source.
@@ -270,6 +340,16 @@ var knownModels = map[string]map[string]bool{
 	},
 }
 
+var apiEndpoints = map[string]struct {
+	URL    string
+	EnvKey string
+}{
+	"OpenAI":   {URL: "https://api.openai.com/v1/models", EnvKey: "OPENAI_API_KEY"},
+	"DeepSeek": {URL: "https://api.deepseek.com/models", EnvKey: "DEEPSEEK_API_KEY"},
+	"Mistral":  {URL: "https://api.mistral.ai/v1/models", EnvKey: "MISTRAL_API_KEY"},
+	"xAI":      {URL: "https://api.x.ai/v1/models", EnvKey: "XAI_API_KEY"},
+}
+
 const maxRetries = 3
 
 func main() {
@@ -301,14 +381,51 @@ func main() {
 			continue
 		}
 
-		ids, err := fetchModelsFromDocs(ctx, client, src)
-		if err != nil {
-			logf("[%s] ERROR: %v\n", name, err)
-			hasErrors = true
+		var ids []string
+		var err error
+
+		// Try API first if endpoint and key are configured
+		if ep, ok := apiEndpoints[name]; ok {
+			if key := os.Getenv(ep.EnvKey); key != "" {
+				ids, err = fetchModelsFromAPI(ctx, client, ep.URL, key)
+				if err == nil && len(ids) > 0 {
+					logf("[%s] Fetched %d models via API\n", name, len(ids))
+				} else {
+					if err != nil {
+						logf("[%s] API fetch failed (%v), falling back to docs scraping\n", name, err)
+					}
+					ids = nil
+					err = nil
+				}
+			}
+		}
+
+		// Fall back to HTML scraping
+		if len(ids) == 0 {
+			ids, err = fetchModelsFromDocs(ctx, client, src)
+			if err != nil {
+				logf("[%s] ERROR: %v\n", name, err)
+				hasErrors = true
+				continue
+			}
+		}
+
+		ids = applyNormalization(name, ids)
+
+		known := knownModels[name]
+
+		// Circuit breaker: if scraper returns 0 models but we track >0,
+		// the scraper likely failed silently (anti-bot, page restructure).
+		if len(ids) == 0 && len(known) > 0 {
+			logf("[%s] CIRCUIT BREAKER: scraper returned 0 models but we track %d. Skipping diff.\n", name, len(known))
 			continue
 		}
 
-		known := knownModels[name]
+		// Sanity check: warn if scraped count is suspiciously low.
+		if len(ids) > 0 && len(ids)*5 < len(known) {
+			logf("[%s] WARNING: scraped only %d models vs %d tracked. Results may be incomplete.\n", name, len(ids), len(known))
+		}
+
 		newModels, missing := diff(known, ids)
 
 		logf("[%s] Docs returned %d model IDs, we track %d\n", name, len(ids), len(known))
@@ -369,6 +486,42 @@ func main() {
 	}
 	logf("All tracked providers are in sync.\n")
 	os.Exit(0)
+}
+
+func fetchModelsFromAPI(ctx context.Context, client *http.Client, endpoint, apiKey string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned HTTP %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse API response: %w", err)
+	}
+
+	ids := make([]string, 0, len(result.Data))
+	for _, m := range result.Data {
+		if m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids, nil
 }
 
 // fetchModelsFromDocs fetches a public documentation page and extracts model IDs
@@ -479,10 +632,21 @@ func fetchAndExtract(ctx context.Context, client *http.Client, url string, patte
 	return nil, fmt.Errorf("all %d attempts failed: %w", maxRetries, lastErr)
 }
 
-// existingIssueCoversModels checks if any open issue with the auto-update label
-// already mentions all of the given model IDs in its body. Returns true if a
-// covering issue exists (meaning we should skip creating a new one).
-func existingIssueCoversModels(ctx context.Context, client *http.Client, token, repo string, modelIDs []string) bool {
+// fingerprintModels computes a deterministic SHA-256 fingerprint for a set of
+// model IDs. The IDs are sorted and joined with newlines before hashing, so
+// the fingerprint is independent of input order.
+func fingerprintModels(ids []string) string {
+	sorted := make([]string, len(ids))
+	copy(sorted, ids)
+	sort.Strings(sorted)
+	h := sha256.Sum256([]byte(strings.Join(sorted, "\n")))
+	return hex.EncodeToString(h[:])
+}
+
+// existingIssueWithFingerprint checks if any open issue with the auto-update
+// label already contains a matching fingerprint comment in its body. Returns
+// true if a matching issue exists (meaning we should skip creating a new one).
+func existingIssueWithFingerprint(ctx context.Context, client *http.Client, token, repo, fingerprint string) bool {
 	searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=repo:%s+state:open+label:auto-update",
 		repo)
 	searchReq, err := http.NewRequestWithContext(ctx, http.MethodGet, searchURL, nil)
@@ -512,22 +676,9 @@ func existingIssueCoversModels(ctx context.Context, client *http.Client, token, 
 		return false
 	}
 
-	// Check if any existing issue body already mentions ALL the model IDs.
-	// Use word-boundary matching to avoid substring false positives
-	// (e.g., "gpt-5" matching inside "gpt-5-mini").
+	marker := "<!-- fingerprint:" + fingerprint + " -->"
 	for _, issue := range searchResult.Items {
-		allFound := true
-		for _, id := range modelIDs {
-			// Match the model ID as a whole token: preceded by start/non-alnum,
-			// followed by end/non-alnum. This prevents "gpt-5" matching "gpt-5-mini".
-			pat := `(?:^|[^a-zA-Z0-9_-])` + regexp.QuoteMeta(id) + `(?:$|[^a-zA-Z0-9_.-])`
-			matched, _ := regexp.MatchString(pat, issue.Body)
-			if !matched {
-				allFound = false
-				break
-			}
-		}
-		if allFound {
+		if strings.Contains(issue.Body, marker) {
 			return true
 		}
 	}
@@ -594,8 +745,9 @@ func createNewModelsIssue(ctx context.Context, client *http.Client, newModelIDs 
 		return
 	}
 
-	if existingIssueCoversModels(ctx, client, token, repo, newModelIDs) {
-		fmt.Printf("[GitHub] Existing open issue already covers these new models, skipping.\n")
+	fp := fingerprintModels(newModelIDs)
+	if existingIssueWithFingerprint(ctx, client, token, repo, fp) {
+		fmt.Printf("[GitHub] Existing open issue already covers these new models (fingerprint match), skipping.\n")
 		return
 	}
 
@@ -617,6 +769,7 @@ func createNewModelsIssue(ctx context.Context, client *http.Client, newModelIDs 
 	body.WriteString("\n<details>\n<summary>Full update report</summary>\n\n```\n")
 	body.WriteString(reportBody)
 	body.WriteString("\n```\n</details>\n")
+	body.WriteString("\n<!-- fingerprint:" + fp + " -->\n")
 
 	createGitHubIssue(ctx, client, title, body.String())
 }
@@ -635,8 +788,9 @@ func createDeprecationIssue(ctx context.Context, client *http.Client, missingIDs
 		return
 	}
 
-	if existingIssueCoversModels(ctx, client, token, repo, missingIDs) {
-		fmt.Printf("[GitHub] Existing open issue already covers these missing models, skipping.\n")
+	fp := fingerprintModels(missingIDs)
+	if existingIssueWithFingerprint(ctx, client, token, repo, fp) {
+		fmt.Printf("[GitHub] Existing open issue already covers these missing models (fingerprint match), skipping.\n")
 		return
 	}
 
@@ -661,6 +815,7 @@ func createDeprecationIssue(ctx context.Context, client *http.Client, missingIDs
 	body.WriteString("\n<details>\n<summary>Full update report</summary>\n\n```\n")
 	body.WriteString(reportBody)
 	body.WriteString("\n```\n</details>\n")
+	body.WriteString("\n<!-- fingerprint:" + fp + " -->\n")
 
 	createGitHubIssue(ctx, client, title, body.String())
 }
