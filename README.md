@@ -163,9 +163,9 @@ The server instructions tell the agent: *"NEVER use a model ID from your trainin
 
 ```python
 # You: "Call the OpenAI API with their best coding model"
-# Agent calls: get_model_info("gpt-5.3-codex")
+# Agent calls: get_model_info("gpt-5.4")
 response = client.chat.completions.create(
-    model="gpt-5.3-codex",  # Verified via model registry
+    model="gpt-5.4",  # Verified via model registry
     messages=[...]
 )
 ```
@@ -222,11 +222,11 @@ For comparison, a single web search costs more tokens than all 6 tool schemas co
 
 ## Covered Models (107 total)
 
-### Current Models (78)
+### Current Models (79)
 
 | Provider | Models | API IDs |
 |----------|--------|---------|
-| **OpenAI** (14) | GPT-5.3 Codex, GPT-5.3 Instant, GPT-5.2, GPT-5.2 Pro, GPT-5.1, GPT-5.1 Codex, GPT-5.1 Mini, GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-4.1 Mini, GPT-4.1 Nano, o3, o4-mini | `gpt-5.3-codex`, `gpt-5.3-chat-latest`, `gpt-5.2`, `gpt-5.2-pro`, `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-mini`, `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini` |
+| **OpenAI** (15) | GPT-5.4, GPT-5.4 Pro, GPT-5.3 Instant, GPT-5.2, GPT-5.2 Pro, GPT-5.1, GPT-5.1 Codex, GPT-5.1 Mini, GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-4.1 Mini, GPT-4.1 Nano, o3, o4-mini | `gpt-5.4`, `gpt-5.4-pro`, `gpt-5.3-chat-latest`, `gpt-5.2`, `gpt-5.2-pro`, `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-mini`, `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini` |
 | **Anthropic** (4) | Claude Opus 4.6, Claude Sonnet 4.6, Claude Sonnet 4.5, Claude Haiku 4.5 | `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5-20250929`, `claude-haiku-4-5-20251001` |
 | **Mistral** (11) | Mistral Large 3, Mistral Medium 3, Mistral Small 3.2, Mistral Saba, Ministral 3B, Ministral 8B, Ministral 14B, Magistral Small 1.2, Magistral Medium 1.2, Devstral 2, Devstral Small 2 | `mistral-large-2512`, `mistral-medium-2505`, `mistral-small-2506`, `mistral-saba-2502`, `ministral-3b-2512`, `ministral-8b-2512`, `ministral-14b-2512`, `magistral-small-2509`, `magistral-medium-2509`, `devstral-2512`, `devstral-small-2512` |
 | **Amazon** (6) | Nova Micro, Nova Lite, Nova Pro, Nova Premier, Nova 2 Lite, Nova 2 Pro | `amazon-nova-micro`, `amazon-nova-lite`, `amazon-nova-pro`, `amazon-nova-premier`, `amazon-nova-2-lite`, `amazon-nova-2-pro` |
@@ -246,11 +246,11 @@ For comparison, a single web search costs more tokens than all 6 tool schemas co
 | **Kuaishou** (1) | KAT-Coder Pro | `kat-coder-pro` |
 | **Xiaomi** (1) | MiMo V2 Flash | `mimo-v2-flash` |
 
-### Legacy & Deprecated Models (29)
+### Legacy & Deprecated Models (30)
 
 Tracked so your agent can detect outdated model IDs and suggest current replacements:
 
-- **OpenAI**: `gpt-5.2-codex` (deprecated), `gpt-5.1-codex-mini` (deprecated), `o3-pro` (deprecated), `o3-deep-research` (deprecated), `o3-mini` (legacy), `gpt-4.1` (deprecated), `gpt-4o` (deprecated), `gpt-4o-mini` (deprecated)
+- **OpenAI**: `gpt-5.3-codex` (deprecated), `gpt-5.2-codex` (deprecated), `gpt-5.1-codex-mini` (deprecated), `o3-pro` (deprecated), `o3-deep-research` (deprecated), `o3-mini` (legacy), `gpt-4.1` (deprecated), `gpt-4o` (deprecated), `gpt-4o-mini` (deprecated)
 - **Anthropic**: `claude-opus-4-5` (legacy), `claude-opus-4-1` (legacy), `claude-opus-4-0` (legacy), `claude-sonnet-4-0` (legacy), `claude-3-7-sonnet-20250219` (deprecated)
 - **Google**: `gemini-3-pro-preview` (deprecated), `gemini-3-pro-image-preview` (deprecated), `gemini-2.5-flash-lite` (deprecated), `gemini-2.0-flash-lite` (deprecated), `gemini-2.0-flash` (deprecated)
 - **xAI**: `grok-4.1` (deprecated), `grok-3` (legacy), `grok-3-mini` (legacy)
