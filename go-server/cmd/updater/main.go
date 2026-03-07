@@ -153,7 +153,8 @@ var docSources = map[string]DocSource{
 		URLs: []string{
 			"https://ai.google.dev/gemini-api/docs/models",
 		},
-		Pattern: regexp.MustCompile(`(gemini-[0-9]+\.?[0-9]*-(?:pro|pro-image|flash|flash-lite)(?:-preview)?)`),
+		Pattern:        regexp.MustCompile(`(gemini-[0-9]+\.?[0-9]*-(?:pro|pro-image|flash|flash-lite)(?:-preview)?)`),
+		ExcludePattern: regexp.MustCompile(`^gemini-[0-9]+-(?:pro|flash)$`),
 	},
 	"Mistral": {
 		URLs: []string{
@@ -206,7 +207,7 @@ var knownModels = map[string]map[string]bool{
 	// (otherwise they appear as false "MISSING" every run).
 	"OpenAI": {
 		"gpt-5.4":             true,
-		"gpt-5.4-pro":         true,
+		// gpt-5.4-pro is Responses API only; absent from openai-python type stubs so scraper cannot detect it.
 		"gpt-5.3-chat-latest": true,
 		"gpt-5.2":             true,
 		"gpt-5.2-pro":         true,
@@ -238,6 +239,7 @@ var knownModels = map[string]map[string]bool{
 		"gemini-3-flash-preview": true,
 		"gemini-2.5-pro":         true,
 		"gemini-2.5-flash":       true,
+		"gemini-2.0-flash":       true,
 	},
 	"xAI": {
 		"grok-4":           true,
