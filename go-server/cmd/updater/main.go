@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"go-server/internal/models"
 )
 
 // DocSource describes a public documentation page to scrape for model IDs.
@@ -934,6 +936,10 @@ func diff(known map[string]bool, docIDs []string) (newModels, missing []string) 
 			continue
 		}
 		if isKnownAlias(id, known) {
+			continue
+		}
+		// Skip models already in the registry (e.g. deprecated models still in provider docs).
+		if _, exists := models.Models[id]; exists {
 			continue
 		}
 		newModels = append(newModels, id)
