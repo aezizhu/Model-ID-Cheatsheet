@@ -485,6 +485,136 @@ func TestIsKnownAlias_NumericVariant_BareBase(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// stripModeSuffixes tests
+// ---------------------------------------------------------------------------
+
+func TestStripModeSuffixes(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"grok-4-fast-reasoning", "grok-4-fast"},
+		{"grok-4-fast-non-reasoning", "grok-4-fast"},
+		{"grok-4.20-beta-0309-reasoning", "grok-4.20-beta-0309"},
+		{"grok-4.20-beta-0309-non-reasoning", "grok-4.20-beta-0309"},
+		{"grok-4.20-beta-latest-reasoning", "grok-4.20-beta"},
+		{"grok-4.20-beta-latest-non-reasoning", "grok-4.20-beta"},
+		{"claude-sonnet-4-6-reasoning", "claude-sonnet-4-6"},
+		{"gemini-2.5-pro-latest", "gemini-2.5-pro"},
+		// No suffix to strip
+		{"gpt-5", "gpt-5"},
+		{"grok-4-fast", "grok-4-fast"},
+		{"grok-4.20-beta-0309", "grok-4.20-beta-0309"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		got := stripModeSuffixes(tt.input)
+		if got != tt.want {
+			t.Errorf("stripModeSuffixes(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// isCompoundAliasSuffix tests
+// ---------------------------------------------------------------------------
+
+func TestIsCompoundAliasSuffix(t *testing.T) {
+	tests := []struct {
+		suffix string
+		want   bool
+	}{
+		// Single known suffixes
+		{"latest", true},
+		{"reasoning", true},
+		{"non-reasoning", true},
+		{"beta", true},
+		{"preview", true},
+		// Compound suffixes
+		{"latest-non-reasoning", true},
+		{"latest-reasoning", true},
+		{"fast-beta", true},
+		{"fast-latest", true},
+		// Not alias suffixes
+		{"turbo", false},
+		{"audio-preview", false},
+		{"", false},
+		{"unknown", false},
+		{"latest-turbo", false},
+	}
+	for _, tt := range tests {
+		got := isCompoundAliasSuffix(tt.suffix)
+		if got != tt.want {
+			t.Errorf("isCompoundAliasSuffix(%q) = %v, want %v", tt.suffix, got, tt.want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// hasVariantInDocs tests
+// ---------------------------------------------------------------------------
+
+func TestHasVariantInDocs(t *testing.T) {
+	docSet := map[string]bool{
+		"grok-4-fast-reasoning":     true,
+		"grok-4-fast-non-reasoning": true,
+		"grok-4.20-beta-0309":       true,
+		"gpt-5":                     true,
+	}
+
+	tests := []struct {
+		knownID string
+		want    bool
+	}{
+		// grok-4-fast has variants in docs
+		{"grok-4-fast", true},
+		// gpt-5 is directly in docs, but hasVariantInDocs checks for suffixed variants
+		{"gpt-5", false},
+		// No variant for this
+		{"grok-3", false},
+		// grok-4.20-beta-0309 is in docs directly, but no suffixed variant
+		{"grok-4.20-beta-0309", false},
+	}
+	for _, tt := range tests {
+		got := hasVariantInDocs(tt.knownID, docSet)
+		if got != tt.want {
+			t.Errorf("hasVariantInDocs(%q) = %v, want %v", tt.knownID, got, tt.want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// diff() reverse alias checking: known model NOT flagged as missing when
+// docs only list suffixed variants
+// ---------------------------------------------------------------------------
+
+func TestDiff_ReverseAliasNoFalseMissing(t *testing.T) {
+	known := map[string]bool{"grok-4-fast": true}
+	// Docs list only the -reasoning/-non-reasoning variants, not the bare name
+	docIDs := []string{"grok-4-fast-reasoning", "grok-4-fast-non-reasoning"}
+
+	_, missing := diff(known, docIDs)
+	for _, m := range missing {
+		if m == "grok-4-fast" {
+			t.Error("grok-4-fast should NOT be flagged as missing when docs list its reasoning variants")
+		}
+	}
+}
+
+func TestDiff_CompoundSuffixNotNew(t *testing.T) {
+	known := map[string]bool{"grok-4-fast": true}
+	// Compound suffix variant should be recognized as alias, not new
+	docIDs := []string{"grok-4-fast", "grok-4-fast-latest-non-reasoning"}
+
+	newModels, _ := diff(known, docIDs)
+	for _, m := range newModels {
+		if m == "grok-4-fast-latest-non-reasoning" {
+			t.Error("grok-4-fast-latest-non-reasoning should be recognized as alias of grok-4-fast")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // docSources ExcludePattern / NormalizeRe field presence sanity checks
 // ---------------------------------------------------------------------------
 
