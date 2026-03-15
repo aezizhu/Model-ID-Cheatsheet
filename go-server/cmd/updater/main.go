@@ -175,15 +175,6 @@ var docSources = map[string]DocSource{
 		ExcludePattern: regexp.MustCompile(`(?i)(?:image|vision|imagine|video)|^grok-2(?:-|$)`),
 		NormalizeRe:    regexp.MustCompile(`(\d)-(\d)([^0-9]|$)`),
 		NormalizeRepl:  "${1}.${2}${3}",
-		NormalizeFunc: func(id string) string {
-			// Strip reasoning mode suffixes — these are modes, not distinct models
-			for _, suffix := range []string{"-latest-non-reasoning", "-latest-reasoning", "-non-reasoning", "-reasoning"} {
-				if strings.HasSuffix(id, suffix) {
-					return strings.TrimSuffix(id, suffix)
-				}
-			}
-			return id
-		},
 	},
 	"DeepSeek": {
 		URLs: []string{
@@ -574,6 +565,11 @@ func fetchModelsFromDocs(ctx context.Context, client *http.Client, src DocSource
 					ids[i] = strings.ToLower(id)
 				}
 			}
+			// Universal: strip mode suffixes (e.g. -reasoning, -non-reasoning)
+			// so that variants collapse to their base model ID.
+			for i, id := range ids {
+				ids[i] = stripModeSuffixes(id)
+			}
 			seen := make(map[string]bool, len(ids))
 			deduped := make([]string, 0, len(ids))
 			for _, id := range ids {
@@ -835,6 +831,28 @@ func createDeprecationIssue(ctx context.Context, client *http.Client, missingIDs
 	createGitHubIssue(ctx, client, title, body.String())
 }
 
+// modeSuffixes lists well-known mode/variant suffixes that providers append
+// to base model IDs. These represent operating modes, not distinct models.
+// Ordered longest-first so greedy matching works correctly.
+var modeSuffixes = []string{
+	"-latest-non-reasoning", "-latest-reasoning",
+	"-non-reasoning-latest", "-reasoning-latest",
+	"-non-reasoning", "-reasoning",
+	"-latest",
+}
+
+// stripModeSuffixes removes well-known mode/variant suffixes from a model ID,
+// returning the canonical base model ID. Applied universally across all
+// providers so that e.g. "grok-4-fast-reasoning" → "grok-4-fast".
+func stripModeSuffixes(id string) string {
+	for _, suffix := range modeSuffixes {
+		if strings.HasSuffix(id, suffix) {
+			return strings.TrimSuffix(id, suffix)
+		}
+	}
+	return id
+}
+
 // dateStampRe matches model IDs ending with a date stamp in YYYYMMDD or
 // YYYY-MM-DD format (e.g. "gpt-5-2025-08-07" or "gpt-4.1-20250414").
 var dateStampRe = regexp.MustCompile(`-(?:\d{8}|\d{4}-\d{2}-\d{2})$`)
@@ -857,6 +875,37 @@ var aliasSuffixes = map[string]bool{
 	"alt": true, "highspeed": true, "lightning": true,
 	"mini": true, "nano": true,
 	"mini-fast": true, "mini-fast-beta": true, "mini-fast-latest": true,
+}
+
+// isCompoundAliasSuffix reports whether suffix is composed entirely of
+// well-known alias parts joined by dashes (e.g. "latest-non-reasoning").
+// This handles multi-part suffixes without requiring every combination
+// to be pre-registered in aliasSuffixes.
+func isCompoundAliasSuffix(suffix string) bool {
+	if suffix == "" {
+		return false
+	}
+	// Try to consume the suffix by greedily matching alias parts from the front.
+	// We try longer matches first to handle cases like "non-reasoning" before "non".
+	remaining := suffix
+	for remaining != "" {
+		matched := false
+		// Sort candidates by length (descending) for greedy match
+		for candidate := range aliasSuffixes {
+			if strings.HasPrefix(remaining, candidate) {
+				rest := remaining[len(candidate):]
+				if rest == "" || strings.HasPrefix(rest, "-") {
+					remaining = strings.TrimPrefix(rest, "-")
+					matched = true
+					break
+				}
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 // isAllDigits reports whether s is a non-empty string composed entirely of
@@ -893,9 +942,10 @@ func isKnownAlias(id string, known map[string]bool) bool {
 		}
 		// Heuristic 2: scraped ID extends known ID with a well-known suffix
 		// e.g. "gpt-5-chat-latest" when "gpt-5" is known
+		// Also handles compound suffixes like "latest-non-reasoning"
 		if id != knownID && strings.HasPrefix(id, knownID+"-") {
 			suffix := id[len(knownID)+1:]
-			if aliasSuffixes[suffix] {
+			if aliasSuffixes[suffix] || isCompoundAliasSuffix(suffix) {
 				return true
 			}
 		}
@@ -903,7 +953,7 @@ func isKnownAlias(id string, known map[string]bool) bool {
 		// e.g. scraped "gemini-3-flash" when known is "gemini-3-flash-preview"
 		if knownID != id && strings.HasPrefix(knownID, id+"-") {
 			suffix := knownID[len(id)+1:]
-			if aliasSuffixes[suffix] {
+			if aliasSuffixes[suffix] || isCompoundAliasSuffix(suffix) {
 				return true
 			}
 		}
@@ -923,6 +973,26 @@ func isKnownAlias(id string, known map[string]bool) bool {
 						return true
 					}
 				}
+			}
+		}
+	}
+	return false
+}
+
+// hasVariantInDocs checks whether any doc ID is a variant of the given known
+// model ID. This prevents false "missing" alerts when docs list a model only
+// via suffixed variants (e.g. "model-reasoning" instead of bare "model").
+func hasVariantInDocs(knownID string, docSet map[string]bool) bool {
+	prefix := knownID + "-"
+	for docID := range docSet {
+		if strings.HasPrefix(docID, prefix) {
+			suffix := docID[len(prefix):]
+			if aliasSuffixes[suffix] {
+				return true
+			}
+			// Also check if suffix is composed of multiple known alias parts
+			if isCompoundAliasSuffix(suffix) {
+				return true
 			}
 		}
 	}
@@ -957,9 +1027,18 @@ func diff(known map[string]bool, docIDs []string) (newModels, missing []string) 
 	}
 
 	for id := range known {
-		if !docSet[id] {
-			missing = append(missing, id)
+		if docSet[id] {
+			continue
 		}
+		// Before flagging as missing, check if any doc ID is a variant of
+		// this known model (e.g. docs list "grok-4-fast-reasoning" but we
+		// track "grok-4-fast"). The universal stripModeSuffixes should
+		// handle most cases, but as a safety net also check if any doc ID
+		// has this known ID as a prefix with an alias suffix.
+		if hasVariantInDocs(id, docSet) {
+			continue
+		}
+		missing = append(missing, id)
 	}
 
 	return newModels, missing
